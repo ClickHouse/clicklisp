@@ -188,6 +188,35 @@ Protocol notes (all handled by `clicklisp udf`):
 - The UDF streams are byte-transparent (latin-1), so non-UTF-8 bytes in
   String values round-trip instead of crashing the process.
 
+### Trying it against a local ClickHouse
+
+Run a ClickHouse server in Docker with the static Linux binary (from
+`scripts/build-static.sh` or a release) mounted into `user_scripts_path`
+— on Apple Silicon the aarch64 build runs natively in the container:
+
+```sh
+# clicklisp-linux-aarch64 on Apple Silicon, clicklisp-linux-x86_64 on Intel
+docker run -d --name clicklisp-ch \
+  -v "$PWD/dist/clicklisp-linux-aarch64:/var/lib/clickhouse/user_scripts/clicklisp" \
+  -v "$PWD/examples/clicklisp_function.xml:/etc/clickhouse-server/clicklisp_function.xml" \
+  clickhouse/clickhouse-server:latest
+
+docker exec clicklisp-ch clickhouse-client \
+  -q "SELECT clicklisp_entropy('q7x9z2j4k8w1'), clicklisp_rot13('uryyb')"
+```
+
+Detection rules compile on the host and pipe straight into the server,
+calling back into the Lisp UDF:
+
+```sh
+bin/clicklisp rules sql --load examples/rules.lisp dga-domains \
+  | grep -v '^--' \
+  | docker exec -i clicklisp-ch clickhouse-client --format PrettyCompact
+```
+
+UDF stderr (failed rows, hot-reload notices) lands in the server log:
+`docker logs clicklisp-ch`. Tear down with `docker rm -f clicklisp-ch`.
+
 ### Hot patching
 
 `--watch` re-loads a Lisp file whenever it changes, *while the pool process
