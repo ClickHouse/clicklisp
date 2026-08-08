@@ -1,0 +1,60 @@
+# Reusable workflow: build fully static clicklisp binaries for
+# x86_64 and aarch64 Linux (musl) inside Alpine containers.
+#
+# The Alpine build runs via `docker run` from the host job instead of
+# `container:` because Node-based actions (checkout/cache) have no arm64
+# musl Node build and fail inside Alpine containers on the arm runners.
+name: build-static
+
+on:
+  workflow_call: {}
+
+jobs:
+  build:
+    name: static ${{ matrix.arch }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            arch: x86_64
+          - runner: ubuntu-24.04-arm
+            arch: aarch64
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+
+      # ~200MB static ECL toolchain, rebuilt only when the version or the
+      # build script changes. runner.arch is in the key because runner.os
+      # is "Linux" on both architectures.
+      - name: Cache static ECL toolchain
+        uses: actions/cache@v4
+        with:
+          path: .cache/ecl-static
+          key: ecl-static-26.5.5-${{ runner.arch }}-${{ hashFiles('scripts/build-static.sh') }}
+
+      - name: Build static binary in Alpine
+        run: |
+          mkdir -p .cache/ecl-static
+          docker run --rm \
+            -v "$GITHUB_WORKSPACE:/src" \
+            -v "$GITHUB_WORKSPACE/.cache/ecl-static:/cache" \
+            -w /src \
+            alpine:3.22 sh scripts/build-static.sh
+          # the container runs as root; later steps and the cache post-step
+          # run as the unprivileged runner user
+          sudo chown -R "$(id -u):$(id -g)" dist bin .cache/ecl-static
+
+      # A static musl binary must run on the glibc host as-is.
+      - name: Verify artifact on the host
+        run: |
+          file "dist/clicklisp-linux-${{ matrix.arch }}"
+          chmod +x "dist/clicklisp-linux-${{ matrix.arch }}"
+          "./dist/clicklisp-linux-${{ matrix.arch }}" version
+          echo '(select (1))' | "./dist/clicklisp-linux-${{ matrix.arch }}" compile
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: clicklisp-linux-${{ matrix.arch }}
+          path: dist/clicklisp-linux-${{ matrix.arch }}
+          if-no-files-found: error

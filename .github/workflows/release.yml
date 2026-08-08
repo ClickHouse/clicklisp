@@ -1,0 +1,56 @@
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  check-version:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Tag must match version.sexp
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          version="$(tr -d '"[:space:]' < version.sexp)"
+          if [ "$tag" != "$version" ]; then
+            echo "::error::tag v$tag does not match version.sexp ($version)"
+            exit 1
+          fi
+
+  build:
+    needs: check-version
+    uses: ./.github/workflows/build-static.yml
+
+  release:
+    needs: build
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Checksums
+        run: |
+          cd dist
+          chmod +x clicklisp-linux-*
+          sha256sum clicklisp-linux-* > SHA256SUMS
+          cat SHA256SUMS
+      - name: Smoke test the x86_64 artifact
+        run: |
+          ./dist/clicklisp-linux-x86_64 version
+          echo '(select (1))' | ./dist/clicklisp-linux-x86_64 compile
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            dist/clicklisp-linux-x86_64 \
+            dist/clicklisp-linux-aarch64 \
+            dist/SHA256SUMS \
+            --title "clicklisp $GITHUB_REF_NAME" \
+            --generate-notes

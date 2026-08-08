@@ -1,0 +1,51 @@
+<!--
+  ClickHouse executable UDF definitions backed by the clicklisp binary.
+
+  Install:
+    1. Copy bin/clicklisp into user_scripts_path
+       (default: /var/lib/clickhouse/user_scripts/).
+    2. Copy this file next to the server config so it matches
+       user_defined_executable_functions_config (default glob: *_function.*ml).
+    3. SELECT clicklisp_entropy(domain) FROM dns_events;
+
+  With execute_direct (the default) the first token of <command> must be an
+  executable inside user_scripts_path; the rest become argv.
+
+  type executable_pool keeps long-lived processes fed blocks over stdin;
+  send_chunk_header=1 prefixes each block with its row count, which lets the
+  process flush once per block instead of once per row.
+-->
+<functions>
+    <function>
+        <type>executable_pool</type>
+        <name>clicklisp_entropy</name>
+        <command>clicklisp udf --fn entropy --chunked</command>
+        <format>TabSeparated</format>
+        <argument>
+            <type>String</type>
+            <name>value</name>
+        </argument>
+        <return_type>Float64</return_type>
+        <send_chunk_header>1</send_chunk_header>
+        <deterministic>1</deterministic>
+        <pool_size>4</pool_size>
+    </function>
+    <function>
+        <type>executable</type>
+        <name>clicklisp_rot13</name>
+        <command>clicklisp udf --fn rot13</command>
+        <format>TabSeparated</format>
+        <argument>
+            <type>String</type>
+            <name>value</name>
+        </argument>
+        <return_type>String</return_type>
+        <deterministic>1</deterministic>
+    </function>
+    <!--
+      Hot patching: serve a UDF from a watched Lisp file and redefine it
+      while queries stream through the pool. See the README for the
+      corresponding <function> entry; reloads use ECL's in-image bytecode
+      compiler, so no C toolchain is needed in the sandbox.
+    -->
+</functions>

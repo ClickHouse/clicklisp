@@ -1,0 +1,12 @@
+bin/
+build/obj/
+.cache/
+dist/
+*.fas
+*.fasl
+*.fasb
+*.o
+*.a
+*.eclh
+*.data
+.claude/settings.local.json

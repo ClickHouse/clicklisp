@@ -1,0 +1,94 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  # Unit tests + a full binary build with the distro ECL, on both
+  # architectures.
+  test:
+    name: test (${{ matrix.runner }})
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-24.04, ubuntu-24.04-arm]
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install ECL
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ecl
+      - name: Run test suite
+        run: make test
+      - name: Build binary
+        run: make all
+      - name: Smoke test binary
+        run: make smoke
+
+  # Build ECL itself with ASan+UBSan (build-time CFLAGS are baked into
+  # ECL's runtime Lisp->C compiler, so all generated code is instrumented
+  # too), then run the suite and the compiled binary under it.
+  sanitize:
+    name: asan+ubsan (${{ matrix.runner }})
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-24.04, ubuntu-24.04-arm]
+    runs-on: ${{ matrix.runner }}
+    env:
+      ECL_VERSION: "26.5.5"
+      # object-size, shift-base and pointer-overflow fire by design in
+      # ECL's core (tagged fixnums, stack-allocated frames) -- ~120 known
+      # reports. Everything else in UBSan plus all of ASan stays on.
+      SAN_CFLAGS: >-
+        -fsanitize=address,undefined
+        -fno-sanitize=object-size,shift-base,pointer-overflow
+        -fno-omit-frame-pointer -g -O1
+      SAN_LDFLAGS: "-fsanitize=address,undefined -g"
+      # Boehm GC: leak detection is meaningless under a GC (and LSan is
+      # fatal-by-default on Linux); ASan fake stacks are unsafe with the
+      # bundled bdwgc 8.2.8 (bdwgc#789).
+      ASAN_OPTIONS: "detect_leaks=0:detect_stack_use_after_return=0:allow_user_segv_handler=1"
+      UBSAN_OPTIONS: "print_stacktrace=1"
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgmp-dev
+      - name: Cache sanitized ECL
+        id: cache-ecl
+        uses: actions/cache@v4
+        with:
+          path: ~/ecl-asan
+          # bump the -vN suffix when SAN_CFLAGS or configure flags change
+          key: ecl-asan-${{ env.ECL_VERSION }}-${{ runner.arch }}-v1
+      - name: Build ECL with sanitizers
+        if: steps.cache-ecl.outputs.cache-hit != 'true'
+        run: |
+          curl -fsSL "https://ecl.common-lisp.dev/static/files/release/ecl-${ECL_VERSION}.tgz" -o ecl.tgz
+          mkdir ecl-src
+          tar xzf ecl.tgz -C ecl-src --strip-components=1
+          cd ecl-src
+          # in-tree configure; --enable-boehm=included so the GC is built
+          # with the sanitizer flags rather than picking up a system libgc
+          ./configure --prefix="$HOME/ecl-asan" \
+                      --enable-boehm=included \
+                      --enable-libatomic=included \
+                      --enable-gmp=system \
+                      --with-dffi=no \
+                      --enable-manual=no \
+                      CFLAGS="$SAN_CFLAGS" LDFLAGS="$SAN_LDFLAGS"
+          make -j"$(nproc)"
+          make install
+      - name: Run test suite under ASan+UBSan
+        run: make test ECL="$HOME/ecl-asan/bin/ecl"
+      - name: Build and smoke the binary under ASan+UBSan
+        run: make all smoke ECL="$HOME/ecl-asan/bin/ecl"
+
+  # The same static musl builds the release pipeline ships.
+  static:
+    uses: ./.github/workflows/build-static.yml
