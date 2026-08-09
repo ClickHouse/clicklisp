@@ -346,14 +346,10 @@ code {
 
 /* ---------- grids ---------- */
 
+/* Centered 2x2; single column on narrow screens. */
 .feature-grid {
-  margin-top: 34px;
-}
-
-@media (max-width: 1080px) {
-  .feature-grid {
-    grid-template-columns: repeat(2, 1fr) !important;
-  }
+  margin: 34px auto 0;
+  max-width: 940px;
 }
 
 @media (max-width: 620px) {
