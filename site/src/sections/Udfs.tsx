@@ -18,19 +18,30 @@ export default function Udfs() {
         </Text>
       </div>
       <div className="split mt-lg">
-        <div className="stack">
+        <div className="stack fill-pane">
+          <div className="pane-label">On your machine</div>
           <CodePane>
             <CodeBlock language="plaintext">{udfDefinition}</CodeBlock>
           </CodePane>
           <CodePane>
             <CodeBlock language="bash">{udfShell}</CodeBlock>
           </CodePane>
+        </div>
+        <div className="stack">
+          <div className="pane-label">In ClickHouse</div>
           <CodePane>
             <CodeBlock language="sql">{udfSql}</CodeBlock>
           </CodePane>
-        </div>
-        <div className="stack">
-          <Panel orientation="vertical" alignItems="start" padding="lg" gap="sm" hasBorder radii="md" color="muted">
+          <Panel
+            className="grow-panel"
+            orientation="vertical"
+            alignItems="start"
+            padding="lg"
+            gap="sm"
+            hasBorder
+            radii="md"
+            color="muted"
+          >
             <Title type="h3" size="md">
               ⚡ Hot patching, mid-query
             </Title>
@@ -44,14 +55,18 @@ export default function Udfs() {
               <code>clicklisp repl</code> gives you the same live-coding loop locally.
             </Text>
           </Panel>
-          <Accordion title="The XML that wires it up" size="md">
-            <div className="mt-lg">
-              <CodePane>
-                <CodeBlock language="plaintext">{udfXml}</CodeBlock>
-              </CodePane>
-            </div>
-          </Accordion>
         </div>
+      </div>
+      {/* Full-width so expanding grows the page uniformly instead of one
+          column, and the one-line <command> fits without scrolling. */}
+      <div className="mt-lg">
+        <Accordion title="The XML that wires it up" size="md">
+          <div className="mt-lg">
+            <CodePane>
+              <CodeBlock language="plaintext">{udfXml}</CodeBlock>
+            </CodePane>
+          </div>
+        </Accordion>
       </div>
     </Section>
   );
