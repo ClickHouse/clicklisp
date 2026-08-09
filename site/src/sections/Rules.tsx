@@ -11,18 +11,18 @@ const POINTS = [
 export default function Rules() {
   return (
     <Section id="rules">
+      <div className="section-intro">
+        <Eyebrow>Detection rules</Eyebrow>
+        <Title type="h2" className="section-title">
+          A rule library, not SQL string blobs
+        </Title>
+      </div>
       <div className="split">
         <div className="stack">
-          <div>
-            <Eyebrow>Detection rules</Eyebrow>
-            <Title type="h2" className="section-title">
-              A rule library, not SQL string blobs
-            </Title>
-            <Text color="muted" size="md">
-              Detection content lives in a library of forms instead of copy-pasted SQL. Diff it, review
-              it, generate it with macros.
-            </Text>
-          </div>
+          <Text color="muted" size="md">
+            Detection content lives in a library of forms instead of copy-pasted SQL. Diff it, review
+            it, generate it with macros.
+          </Text>
           {POINTS.map((p) => (
             <div className="bullet" key={p}>
               <Icon name="check-in-circle" size="sm" />
@@ -32,24 +32,23 @@ export default function Rules() {
           <CodePane>
             <CodeBlock language="bash">{rulesCli}</CodeBlock>
           </CodePane>
-          <Text color="muted" size="sm">
-            See{" "}
-            <a className="footer-link" href={`${REPO_URL}/blob/main/examples/rules.lisp`}>
-              examples/rules.lisp
-            </a>{" "}
-            and the analytics libraries in{" "}
-            <a className="footer-link" href={`${REPO_URL}/tree/main/examples/analytics`}>
-              examples/analytics/
-            </a>
-            .
-          </Text>
         </div>
-        <div className="stack">
+        <div className="stack fill-pane">
           <CodePane>
             <CodeBlock language="plaintext">{ruleExample}</CodeBlock>
           </CodePane>
         </div>
       </div>
+      <Text color="muted" size="sm" className="table-note">
+        See{" "}
+        <a className="footer-link" href={`${REPO_URL}/blob/main/examples/rules.lisp`}>
+          examples/rules.lisp
+        </a>{" "}
+        and the analytics libraries in{" "}
+        <a className="footer-link" href={`${REPO_URL}/tree/main/examples/analytics`}>
+          examples/analytics/
+        </a>.
+      </Text>
     </Section>
   );
 }
