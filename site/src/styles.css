@@ -229,6 +229,28 @@ code {
   flex: 0 0 auto;
 }
 
+/* Equalize the two hero panels: both stretch to the row height, and the
+   short SQL panel centers its content so the arrow points at the query.
+   (The CodeBlock root div carries the panel background, so it's the element
+   that must grow; its copy button is absolutely positioned and unaffected.) */
+.hero-pane .codewrap {
+  flex: 1;
+  display: flex;
+}
+
+.hero-pane .codewrap > div {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+/* The highlighter <pre> sets its own inline background a shade off the panel
+   root's — visible as a stripe once the panel is taller than the code. */
+.hero-pane .codewrap pre {
+  background: transparent !important;
+}
+
 @media (max-width: 980px) {
   .hero-arrow {
     transform: rotate(90deg);
