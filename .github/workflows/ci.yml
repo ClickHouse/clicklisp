@@ -16,7 +16,7 @@ jobs:
         runner: [ubuntu-24.04, ubuntu-24.04-arm]
     runs-on: ${{ matrix.runner }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Install ECL
         run: |
           sudo apt-get update
@@ -54,14 +54,14 @@ jobs:
       ASAN_OPTIONS: "detect_leaks=0:detect_stack_use_after_return=0:allow_user_segv_handler=1"
       UBSAN_OPTIONS: "print_stacktrace=1"
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Install dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y libgmp-dev
       - name: Cache sanitized ECL
         id: cache-ecl
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/ecl-asan
           # bump the -vN suffix when SAN_CFLAGS or configure flags change
