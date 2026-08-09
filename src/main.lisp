@@ -123,7 +123,8 @@
                (dolist (rule rules)
                  (format t "~24A ~10A ~@[~A~]~%"
                          (rule-name rule)
-                         (string-downcase (symbol-name (rule-severity rule)))
+                         (let ((severity (rule-severity rule)))
+                           (if severity (string-downcase (symbol-name severity)) ""))
                          (rule-description rule))))))
         ((string= subcommand "sql")
          (let ((rules (cond (all (list-rules))
@@ -135,9 +136,10 @@
            (when (null rules)
              (usage-error "rules sql: no rules loaded (use --load FILE)"))
            (dolist (rule rules)
-             (format t "-- ~A [~A]~@[ ~A~]~%~A;~%~%"
+             (format t "-- ~A~@[ [~A]~]~@[ ~A~]~%~A;~%~%"
                      (rule-name rule)
-                     (string-downcase (symbol-name (rule-severity rule)))
+                     (let ((severity (rule-severity rule)))
+                       (and severity (string-downcase (symbol-name severity))))
                      (rule-description rule)
                      (rule-sql rule :pretty pretty)))))))
     0))
@@ -235,9 +237,9 @@ usage: clicklisp COMMAND [options]~%~
 commands:~%~
   compile [--pretty] [-e SEXPR] [FILE ...]   compile query forms to SQL~%~
                                              (reads stdin when no input given)~%~
-  rules [list] [--load FILE]                 list loaded detection rules~%~
+  rules [list] [--load FILE]                 list loaded rules and queries~%~
   rules sql [--load FILE] [--pretty] [--all | NAME ...]~%~
-                                             emit SQL for detection rules~%~
+                                             emit SQL for rules and queries~%~
   udf --fn NAME [--load FILE] [--chunked] [--watch FILE]~%~
                                              serve a UDF over stdin/stdout~%~
                                              (TabSeparated, for ClickHouse~%~

@@ -10,8 +10,10 @@
    #:sql-error-form
    #:define-sql-function
    #:define-sql-type
-   ;; detection rules
+   ;; detection rules and named queries
    #:defrule
+   #:defquery
+   #:register-rule
    #:list-rules
    #:find-rule
    #:rule-sql
