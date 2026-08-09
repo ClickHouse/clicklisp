@@ -379,6 +379,21 @@ code {
   min-width: 0;
 }
 
+/* A split column whose code panel stretches to match the sibling column's
+   height, so the two columns share top and bottom edges. */
+.fill-pane {
+  align-self: stretch;
+}
+
+.fill-pane .codewrap {
+  flex: 1;
+  display: flex;
+}
+
+.fill-pane .codewrap > div {
+  flex: 1;
+}
+
 .bullet {
   display: flex;
   gap: 10px;
