@@ -368,6 +368,12 @@ expression (e.g. a table identifier)."
 ;;; ---------------------------------------------------------------------
 ;;; SELECT statements
 
+(defun table-ref-final-p (spec)
+  "True when SPEC already renders a FINAL modifier."
+  (or (head-name-p spec "FINAL")
+      (and (head-name-p spec "AS")
+           (head-name-p (second spec) "FINAL"))))
+
 (defun table-ref-sql (spec)
   (cond
     ((and spec (symbolp spec)) (identifier-sql spec))
@@ -376,12 +382,27 @@ expression (e.g. a table identifier)."
     ((head-name-p spec "AS")
      (progn
        (expect-args spec 2)
-       (format nil "~A AS ~A"
-               (table-ref-sql (second spec))
-               (identifier-sql (third spec)))))
+       ;; ClickHouse puts FINAL after the alias: t AS x FINAL
+       (let ((table (second spec)))
+         (when (head-name-p table "AS")
+           (sql-fail spec "table reference ~S is aliased twice" spec))
+         (if (head-name-p table "FINAL")
+             (progn
+               (expect-args table 1)
+               (when (or (head-name-p (second table) "AS")
+                         (head-name-p (second table) "FINAL"))
+                 (sql-fail spec "bad table reference ~S: FINAL takes a plain table or subquery here" spec))
+               (format nil "~A AS ~A FINAL"
+                       (table-ref-sql (second table))
+                       (identifier-sql (third spec))))
+             (format nil "~A AS ~A"
+                     (table-ref-sql table)
+                     (identifier-sql (third spec)))))))
     ((head-name-p spec "FINAL")
      (progn
        (expect-args spec 1)
+       (when (table-ref-final-p (second spec))
+         (sql-fail spec "redundant FINAL in ~S" spec))
        (format nil "~A FINAL" (table-ref-sql (second spec)))))
     (t (sql-fail spec "bad table reference ~S" spec))))
 
@@ -508,6 +529,9 @@ expression (e.g. a table identifier)."
                         (mapcar #'with-item-sql items)))))
       (emit (format nil "SELECT ~A" (select-columns-sql (second form) form)))
       (when (clause-p "FROM")
+        (when (and (clause "FINAL") (table-ref-final-p (clause "FROM")))
+          (sql-fail form ":final t duplicates the FINAL already in ~S"
+                    (clause "FROM")))
         (emit (format nil "FROM ~A~:[~; FINAL~]~@[ SAMPLE ~A~]"
                       (table-ref-sql (clause "FROM"))
                       (clause "FINAL")

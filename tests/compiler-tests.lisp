@@ -138,6 +138,14 @@
   (is= "SELECT a FROM t LIMIT 3 BY user"
        (cq '(select (a) :from t :limit-by (3 user))))
   (is= "SELECT a FROM t FINAL" (cq '(select (a) :from t :final t)))
+  (is= "SELECT a FROM t AS x FINAL" (cq '(select (a) :from (as (final t) x))))
+  (is= "SELECT a FROM t AS x FINAL" (cq '(select (a) :from (final (as t x)))))
+  (signals-sql-error (cq '(select (a) :from (as (as t y) x))))
+  (signals-sql-error (cq '(select (a) :from (as (final (as t y)) x))))
+  (signals-sql-error (cq '(select (a) :from (final (final t)))))
+  (signals-sql-error (cq '(select (a) :from (final (as (final t) x)))))
+  (signals-sql-error (cq '(select (a) :from (as (final t) x) :final t)))
+  (signals-sql-error (cq '(select (a) :from (final t) :final t)))
   (is= "SELECT a FROM t SAMPLE 0.1" (cq '(select (a) :from t :sample 0.1)))
   (is= "SELECT a FROM t PREWHERE (d = 1) WHERE (b = 2)"
        (cq '(select (a) :from t :prewhere (= d 1) :where (= b 2))))
@@ -227,6 +235,19 @@
    (clicklisp::register-rule 'bad-severity '(:severity :whatever) '(select (1))))
   (signals-sql-error
    (clicklisp::register-rule 'bad-query '() '(select (a) :oops 1))))
+
+(defquery test-query (:description "sales per town" :tags (:analytics))
+  (select (town (as (count) sales)) :from prices :group-by (town)))
+
+(deftest queries
+  (let ((query (find-rule "test-query")))
+    (is (not (null query)))
+    (is (null (rule-severity query)))
+    (is (equal '(:analytics) (rule-tags query)))
+    (is= "SELECT town, count() AS sales FROM prices GROUP BY town"
+         (rule-sql query)))
+  (signals-sql-error
+   (macroexpand-1 '(defquery bad-query (:severity :high) (select (1))))))
 
 (deftest user-extensions
   (define-sql-function my-weird-fn "MyWeirdFn")

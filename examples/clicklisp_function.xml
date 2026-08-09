@@ -43,9 +43,26 @@
         <deterministic>1</deterministic>
     </function>
     <!--
-      Hot patching: serve a UDF from a watched Lisp file and redefine it
-      while queries stream through the pool. See the README for the
-      corresponding <function> entry; reloads use ECL's in-image bytecode
-      compiler, so no C toolchain is needed in the sandbox.
+      Hot patching: clicklisp_shout is served from a watched Lisp file
+      (copy examples/udfs/text.lisp into user_scripts_path next to the
+      binary). Edit text.lisp there and the next block is served by the
+      new definition; reloads use ECL's in-image bytecode compiler, so
+      no C toolchain is needed in the sandbox.
     -->
+    <function>
+        <type>executable_pool</type>
+        <name>clicklisp_shout</name>
+        <!-- paths resolve against the server's working directory (the
+             `path` setting), so user_scripts/ points into user_scripts_path -->
+        <command>clicklisp udf --fn shout --load user_scripts/text.lisp --watch user_scripts/text.lisp --chunked</command>
+        <format>TabSeparated</format>
+        <argument>
+            <type>String</type>
+            <name>value</name>
+        </argument>
+        <return_type>Float64</return_type>
+        <send_chunk_header>1</send_chunk_header>
+        <deterministic>1</deterministic>
+        <pool_size>4</pool_size>
+    </function>
 </functions>

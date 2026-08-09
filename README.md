@@ -56,6 +56,34 @@ MB after stripping, runs on any Linux of that architecture. Release
 binaries for x86_64 and aarch64 are published by the
 [release workflow](.github/workflows/release.yml).
 
+## Trying it against the public playground
+
+[sql.clickhouse.com](https://sql.clickhouse.com) hosts ClickHouse's
+[example datasets](https://clickhouse.com/docs/getting-started/example-datasets)
+behind a read-only HTTP endpoint — [scripts/play.sh](scripts/play.sh)
+sends it SQL from stdin, so compiled queries run against real data with
+no server at all:
+
+```sh
+$ echo '(select (town (as (round (avg price)) avg-price))
+          :from uk.uk-price-paid
+          :where (>= date (to-date "2025-01-01"))
+          :group-by (town)
+          :having (> (count) 1000)
+          :order-by ((avg-price :desc))
+          :limit 3)' | bin/clicklisp compile | scripts/play.sh
+   ┌─town──────┬─avg_price─┐
+1. │ LONDON    │    859963 │
+2. │ RICHMOND  │    797900 │
+3. │ SEVENOAKS │    768441 │
+   └───────────┴───────────┘
+```
+
+`NAME=VALUE` arguments bind server-side `(param name :type)` query
+parameters; `CLICKLISP_FORMAT` and `CLICKLISP_PLAY` override the output
+format and the endpoint. One statement per invocation (the ClickHouse
+HTTP interface is single-statement).
+
 ## The query language
 
 Operators and clause names are matched by symbol *name*, so forms can be
@@ -147,6 +175,67 @@ See [examples/rules.lisp](examples/rules.lisp).
 Exit codes: `0` success, `1` bad input (a query that does not compile),
 `2` bad invocation.
 
+## Query libraries, not query files
+
+`defquery` is `defrule` minus the detection metadata: named queries for
+any domain, served by the same `rules` commands.
+[examples/analytics/](examples/analytics/) has three libraries built on
+the playground's example datasets:
+
+- [uk-price-paid.lisp](examples/analytics/uk-price-paid.lisp) — UK
+  property sales: parameterized queries, parametric aggregates via
+  `(fn "quantile(0.9)" price)`, a `(raw ...)` window function, and a
+  macro that stamps out one price-league query per property type.
+- [repo-health.lisp](examples/analytics/repo-health.lisp) — engineering
+  analytics (code churn, bus factor, comment-to-code ratio) over
+  `clickhouse git-import` tables; the whole library is one macro
+  parameterized by table names, so it runs against *your* repo locally
+  or the playground's pre-imported ClickHouse and Grafana mirrors.
+- [hackernews.lisp](examples/analytics/hackernews.lisp) — text search,
+  array lambdas, CTE composition, and a query that calls back into a
+  clicklisp executable UDF.
+
+Rule files are full Common Lisp, and queries are data — so a macro can
+generate a family of queries with no copy-paste and no templating
+language:
+
+```lisp
+(defmacro def-price-league (ptype)
+  `(defquery ,(intern (format nil "TOP-~A-DISTRICTS" ptype))
+       (:description ,(format nil "Priciest districts for ~(~A~) sales" ptype))
+     (select (district (as (round (avg price)) avg-price))
+       :from uk.uk-price-paid
+       :where (= type ,(string-downcase (string ptype)))
+       :group-by (district)
+       :order-by ((avg-price :desc))
+       :limit 10)))
+
+(def-price-league flat)       ; => top-flat-districts
+(def-price-league detached)   ; => top-detached-districts, ...
+```
+
+Parameterized queries bind server-side through `play.sh` arguments:
+
+```sh
+$ bin/clicklisp rules sql --load examples/analytics/uk-price-paid.lisp price-trend \
+    | scripts/play.sh town=LONDON
+    ┌─year─┬─avg_price─┬─trend──────────┐
+ 1. │ 1995 │    109154 │ █▍             │
+ 2. │ 1996 │    118686 │ █▌             │
+...
+29. │ 2023 │   1026396 │ █████████████▋ │
+    └──────┴───────────┴────────────────┘
+```
+
+`clicklisp repl --load examples/analytics/uk-price-paid.lisp` gives you
+the same registry interactively: evaluate another `(def-price-league ...)`
+form, then `(princ (rule-sql (find-rule "top-flat-districts")))`.
+
+Two authoring notes: a one-element `:order-by ((year))` is read as the
+*call* `year()` — write `:order-by (year)` or `((year :desc))` — and
+executable-UDF calls must be written snake_case (`(clicklisp_shout x)`),
+since kebab-case would camelCase to `clicklispShout(x)`.
+
 ## Executable UDFs
 
 Define a function, and the binary serves it over ClickHouse's executable
@@ -162,6 +251,15 @@ UDF protocol:
 printf 'clickhouse\nq7x9z2j4k8w1.evil.example\n' | clicklisp udf --fn entropy
 3.121928094887362
 4.213660689688184
+```
+
+UDFs load from plain Lisp files too —
+[examples/udfs/text.lisp](examples/udfs/text.lisp) defines `shout`, a
+clickbait score (fraction of letters that are uppercase):
+
+```sh
+$ printf 'HELLO World\n' | clicklisp udf --fn shout --load examples/udfs/text.lisp
+0.6
 ```
 
 Deploy on a self-managed server: copy `bin/clicklisp` into
@@ -198,12 +296,19 @@ Run a ClickHouse server in Docker with the static Linux binary (from
 # clicklisp-linux-aarch64 on Apple Silicon, clicklisp-linux-x86_64 on Intel
 docker run -d --name clicklisp-ch \
   -v "$PWD/dist/clicklisp-linux-aarch64:/var/lib/clickhouse/user_scripts/clicklisp" \
+  -v "$PWD/examples/udfs/text.lisp:/var/lib/clickhouse/user_scripts/text.lisp" \
   -v "$PWD/examples/clicklisp_function.xml:/etc/clickhouse-server/clicklisp_function.xml" \
   clickhouse/clickhouse-server:latest
 
 docker exec clicklisp-ch clickhouse-client \
-  -q "SELECT clicklisp_entropy('q7x9z2j4k8w1'), clicklisp_rot13('uryyb')"
+  -q "SELECT clicklisp_entropy('q7x9z2j4k8w1'), clicklisp_shout('READ THIS now')"
 ```
+
+Load the [Hacker News dataset](https://clickhouse.com/docs/getting-started/example-datasets/hacker-news)
+into the container and the `shouting-titles` query in
+[examples/analytics/hackernews.lisp](examples/analytics/hackernews.lisp)
+ranks real stories with it — SQL compiled from Lisp calling back into
+Lisp per row.
 
 Detection rules compile on the host and pipe straight into the server,
 calling back into the Lisp UDF:
@@ -221,13 +326,16 @@ UDF stderr (failed rows, hot-reload notices) lands in the server log:
 
 `--watch` re-loads a Lisp file whenever it changes, *while the pool process
 keeps serving queries* — using ECL's in-image bytecode compiler, so it
-works inside the UDF sandbox where no C toolchain exists:
+works inside the UDF sandbox where no C toolchain exists. The
+`clicklisp_shout` entry in
+[examples/clicklisp_function.xml](examples/clicklisp_function.xml) is
+wired this way:
 
 ```xml
 <function>
     <type>executable_pool</type>
-    <name>clicklisp_score</name>
-    <command>clicklisp udf --fn score --load score.lisp --watch score.lisp --chunked</command>
+    <name>clicklisp_shout</name>
+    <command>clicklisp udf --fn shout --load user_scripts/text.lisp --watch user_scripts/text.lisp --chunked</command>
     <format>TabSeparated</format>
     <argument><type>String</type></argument>
     <return_type>Float64</return_type>
@@ -235,7 +343,7 @@ works inside the UDF sandbox where no C toolchain exists:
 </function>
 ```
 
-Edit `score.lisp` in `user_scripts_path`, save, and the next block is
+Edit `text.lisp` in `user_scripts_path`, save, and the next block is
 served by the new definition. `clicklisp repl` gives you the same
 live-coding loop locally.
 
@@ -263,10 +371,12 @@ compiling Lisp at `CREATE FUNCTION` time.
 ```
 src/names.lisp      identifier/function/type naming, quoting, literals
 src/compiler.lisp   the s-expression -> SQL compiler
-src/rules.lisp      defrule registry
+src/rules.lisp      defrule/defquery registry
 src/udf.lisp        TabSeparated UDF loop, defudf, hot reload
 src/main.lisp       CLI entry point
 build/build.lisp    ECL AOT build (c:build-program; works on static ECL)
 scripts/build-static.sh   static musl build, run inside alpine:3.22
+scripts/play.sh     pipe SQL from stdin to the public ClickHouse playground
+examples/           detection rules, analytics libraries, UDFs, server config
 tests/              zero-dependency harness + suite
 ```

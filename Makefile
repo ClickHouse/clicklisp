@@ -18,7 +18,11 @@ smoke: $(BIN)
 	$(BIN) compile -e '(select (user) :from logins :where (= ok 0) :limit 10)'
 	printf 'clickhouse\nq7x9z2j4k8w1.evil.example\n' | $(BIN) udf --fn entropy
 	printf 'uryyb\n' | $(BIN) udf --fn rot13
+	printf 'HELLO World\n' | $(BIN) udf --fn shout --load examples/udfs/text.lisp
 	$(BIN) rules sql --all --load examples/rules.lisp
+	$(BIN) rules sql --all --load examples/analytics/uk-price-paid.lisp
+	$(BIN) rules sql --all --load examples/analytics/repo-health.lisp
+	$(BIN) rules sql --all --load examples/analytics/hackernews.lisp
 	@echo smoke OK
 
 clean:
