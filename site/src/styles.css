@@ -245,12 +245,6 @@ code {
   justify-content: center;
 }
 
-/* The highlighter <pre> sets its own inline background a shade off the panel
-   root's — visible as a stripe once the panel is taller than the code. */
-.hero-pane .codewrap pre {
-  background: transparent !important;
-}
-
 @media (max-width: 980px) {
   .hero-arrow {
     transform: rotate(90deg);
@@ -299,6 +293,14 @@ code {
   background: none;
   border: none;
   padding: 0;
+}
+
+/* CodeBlock paints a background on both its root div and the highlighter
+   <pre>, in slightly different shades — whenever a pane is stretched past
+   its code (hero, .fill-pane) the seam shows as a band. Keep only the
+   root's background. */
+.codewrap pre {
+  background: transparent !important;
 }
 
 .codewrap.boxy pre,
