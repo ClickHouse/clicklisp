@@ -27,8 +27,9 @@ const FAQS: Array<{ q: string; a: JSX.Element }> = [
     a: (
       <Text color="muted" size="sm">
         The compiler works everywhere — it just emits SQL, which you can send to Cloud, a self-managed
-        server, or the public playground. Executable UDFs target self-managed ClickHouse; Cloud's UDF
-        beta is currently Python-shaped.
+        server, or the public playground. clicklisp's executable UDFs need a self-managed server, where
+        you can drop the binary into <code>user_scripts_path</code>; Cloud's UDF beta only accepts
+        Python, so the native binary can't run there.
       </Text>
     ),
   },
