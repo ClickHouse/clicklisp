@@ -394,6 +394,21 @@ code {
 
 .fill-pane .codewrap > div {
   flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+/* A panel that absorbs its column's leftover height (e.g. the hot-patch
+   panel when the sibling column runs taller). */
+.grow-panel {
+  flex: 1;
+}
+
+/* Labels inside splits keep the hero's 10px label-to-pane rhythm despite
+   the stack's 18px gap. */
+.split .pane-label {
+  margin-bottom: -8px;
 }
 
 .bullet {
