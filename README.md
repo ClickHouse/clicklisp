@@ -369,14 +369,14 @@ compiling Lisp at `CREATE FUNCTION` time.
 ## Layout
 
 ```
-src/names.lisp      identifier/function/type naming, quoting, literals
-src/compiler.lisp   the s-expression -> SQL compiler
-src/rules.lisp      defrule/defquery registry
-src/udf.lisp        TabSeparated UDF loop, defudf, hot reload
-src/main.lisp       CLI entry point
-build/build.lisp    ECL AOT build (c:build-program; works on static ECL)
+src/names.lisp            identifier/function/type naming, quoting, literals
+src/compiler.lisp         the s-expression -> SQL compiler
+src/rules.lisp            defrule/defquery registry
+src/udf.lisp              TabSeparated UDF loop, defudf, hot reload
+src/main.lisp             CLI entry point
+build/build.lisp          ECL AOT build (c:build-program; works on static ECL)
 scripts/build-static.sh   static musl build, run inside alpine:3.22
-scripts/play.sh     pipe SQL from stdin to the public ClickHouse playground
-examples/           detection rules, analytics libraries, UDFs, server config
-tests/              zero-dependency harness + suite
+scripts/play.sh           pipe SQL from stdin to the public ClickHouse playground
+examples/                 detection rules, analytics libraries, UDFs, server config
+tests/                    zero-dependency harness + suite
 ```
