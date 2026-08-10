@@ -11,12 +11,12 @@
   "dependencies": {
     "@clickhouse/click-ui": "^0.9.1",
     "dayjs": "^1.11.19",
-    "react": "^18.3.1",
+    "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "styled-components": "^6.1.19"
   },
   "devDependencies": {
-    "@types/react": "^18.3.12",
+    "@types/react": "^19.2.4",
     "@types/react-dom": "^19.2.4",
     "@vitejs/plugin-react": "^6.0.5",
     "typescript": "~7.0.2",
