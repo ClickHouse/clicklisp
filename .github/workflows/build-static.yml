@@ -22,13 +22,13 @@ jobs:
             arch: aarch64
     runs-on: ${{ matrix.runner }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # ~200MB static ECL toolchain, rebuilt only when the version or the
       # build script changes. runner.arch is in the key because runner.os
       # is "Linux" on both architectures.
       - name: Cache static ECL toolchain
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: .cache/ecl-static
           key: ecl-static-26.5.5-${{ runner.arch }}-${{ hashFiles('scripts/build-static.sh') }}
@@ -53,7 +53,7 @@ jobs:
           "./dist/clicklisp-linux-${{ matrix.arch }}" version
           echo '(select (1))' | "./dist/clicklisp-linux-${{ matrix.arch }}" compile
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: clicklisp-linux-${{ matrix.arch }}
           path: dist/clicklisp-linux-${{ matrix.arch }}
