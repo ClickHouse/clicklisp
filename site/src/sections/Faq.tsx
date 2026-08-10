@@ -1,3 +1,4 @@
+import type { JSX } from "react";
 import { Accordion, Text, Title } from "@clickhouse/click-ui";
 import { Eyebrow, Section } from "../components";
 
