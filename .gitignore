@@ -10,6 +10,7 @@ dist/
 *.eclh
 *.data
 .claude/settings.local.json
+.claude/CLAUDE.md
 site/node_modules/
 site/dist/
 *.tsbuildinfo
