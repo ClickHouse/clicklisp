@@ -6,6 +6,7 @@ const NAV: Array<[string, string]> = [
   ["Rules", "#rules"],
   ["UDFs", "#udfs"],
   ["Playground", "#playground"],
+  ["Demos", "#demos"],
   ["FAQ", "#faq"],
 ];
 

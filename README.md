@@ -84,6 +84,12 @@ parameters; `CLICKLISP_FORMAT` and `CLICKLISP_PLAY` override the output
 format and the endpoint. One statement per invocation (the ClickHouse
 HTTP interface is single-statement).
 
+The same queries run as [live demos](https://cl.clickhouse.com/#demos)
+in the browser: the site's deploy workflow builds the binary, compiles
+the example libraries with `rules json`, and each demo page sends the
+compiled SQL to the playground with typed `param_` bindings — no server
+of ours in the path.
+
 ## The query language
 
 Operators and clause names are matched by symbol *name*, so forms can be
@@ -168,7 +174,14 @@ Rules are validated (compiled) at load time and rendered on demand:
 clicklisp rules --load rules.lisp                 # list
 clicklisp rules sql --load rules.lisp --all       # emit SQL for all
 clicklisp rules sql --load rules.lisp ssh-bruteforce
+clicklisp rules json --load rules.lisp --all      # machine-readable JSON
 ```
+
+`rules json` dumps each rule as JSON — `name`, `description`, `severity`,
+`tags`, the extracted `{name:Type}` `params`, compact `sql`, multiline
+`sql_pretty`, and the reconstructed `form` — for anything downstream that
+wants rules as data; it is what feeds the
+[live demos](https://cl.clickhouse.com/#demos) at build time.
 
 See [examples/rules.lisp](examples/rules.lisp).
 
@@ -179,7 +192,7 @@ Exit codes: `0` success, `1` bad input (a query that does not compile),
 
 `defquery` is `defrule` minus the detection metadata: named queries for
 any domain, served by the same `rules` commands.
-[examples/analytics/](examples/analytics/) has three libraries built on
+[examples/analytics/](examples/analytics/) has four libraries built on
 the playground's example datasets:
 
 - [uk-price-paid.lisp](examples/analytics/uk-price-paid.lisp) — UK
@@ -189,11 +202,21 @@ the playground's example datasets:
 - [repo-health.lisp](examples/analytics/repo-health.lisp) — engineering
   analytics (code churn, bus factor, comment-to-code ratio) over
   `clickhouse git-import` tables; the whole library is one macro
-  parameterized by table names, so it runs against *your* repo locally
-  or the playground's pre-imported ClickHouse and Grafana mirrors.
+  parameterized by table names, so it runs against *your* repo locally,
+  and [repo-health-playground.lisp](examples/analytics/repo-health-playground.lisp)
+  re-invokes it against the playground's pre-imported ClickHouse mirror
+  (load both files; the second registration wins).
 - [hackernews.lisp](examples/analytics/hackernews.lisp) — text search,
   array lambdas, CTE composition, and a query that calls back into a
   clicklisp executable UDF.
+- [github-events.lisp](examples/analytics/github-events.lisp) — a
+  `defrule` threat pack over 11 billion rows of public GitHub events
+  (`github.events`): branch-reset storms, mass ref deletion, tag
+  retargeting, star storms, bulk collaborator adds, commit-hour
+  anomalies, each tagged with MITRE ATT&CK technique IDs. Two rules
+  default to historical windows because the dataset's loader stopped
+  populating `push_size` and tag `CreateEvent`s around October 2025 —
+  see the file header.
 
 Rule files are full Common Lisp, and queries are data — so a macro can
 generate a family of queries with no copy-paste and no templating
@@ -365,6 +388,15 @@ compiling Lisp at `CREATE FUNCTION` time.
 - **release** — pushing a tag `vX.Y.Z` (which must match `version.sexp`)
   builds both static binaries and publishes them with SHA256SUMS to a
   GitHub release.
+- **pages** — builds the binary with the distro ECL, generates the demo
+  data (`make site-data`), builds the site, and deploys it to
+  [cl.clickhouse.com](https://cl.clickhouse.com) — so the demos are
+  compiled by the same commit they document.
+
+Supply-chain posture: every workflow action is pinned to a commit SHA
+(dependabot keeps the pins fresh), workflows run with least-privilege
+`permissions`, the ECL source tarball is SHA256-verified before it is
+built, and the Alpine build image is pinned by digest.
 
 ## Layout
 
@@ -377,6 +409,8 @@ src/main.lisp             CLI entry point
 build/build.lisp          ECL AOT build (c:build-program; works on static ECL)
 scripts/build-static.sh   static musl build, run inside alpine:3.22
 scripts/play.sh           pipe SQL from stdin to the public ClickHouse playground
+scripts/gen-site-data.sh  compile the example libraries to JSON for the site demos
 examples/                 detection rules, analytics libraries, UDFs, server config
+site/                     cl.clickhouse.com — docs plus live demos of the libraries
 tests/                    zero-dependency harness + suite
 ```

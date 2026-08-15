@@ -2,7 +2,7 @@ ECL ?= ecl
 BIN := bin/clicklisp
 SOURCES := clicklisp.asd version.sexp $(wildcard src/*.lisp)
 
-.PHONY: all test smoke clean
+.PHONY: all test smoke site-data clean
 
 all: $(BIN)
 
@@ -23,7 +23,13 @@ smoke: $(BIN)
 	$(BIN) rules sql --all --load examples/analytics/uk-price-paid.lisp
 	$(BIN) rules sql --all --load examples/analytics/repo-health.lisp
 	$(BIN) rules sql --all --load examples/analytics/hackernews.lisp
+	$(BIN) rules sql --all --load examples/analytics/github-events.lisp
+	$(BIN) rules sql --all --load examples/analytics/repo-health.lisp --load examples/analytics/repo-health-playground.lisp
+	$(BIN) rules json --all --load examples/rules.lisp | python3 -m json.tool > /dev/null
 	@echo smoke OK
+
+site-data: $(BIN)
+	scripts/gen-site-data.sh
 
 clean:
 	rm -rf bin
