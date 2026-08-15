@@ -518,6 +518,90 @@ code {
   justify-content: space-between;
 }
 
+/* ---------- demo pages ---------- */
+
+.demo-page .section-inner {
+  max-width: 980px;
+}
+
+.demo-lede {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: 720px;
+}
+
+.demo-load {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 26px;
+}
+
+.rule-list {
+  display: flex;
+  flex-direction: column;
+  gap: 26px;
+  margin-top: 34px;
+}
+
+.rule-card {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  background: var(--surface);
+  padding: 22px;
+}
+
+.rule-card-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.rule-card-head .rule-name {
+  margin: 0 8px 0 0 !important;
+  font-family: "Inconsolata", ui-monospace, Menlo, Consolas, monospace !important;
+  font-size: 1.15rem !important;
+}
+
+.param-row {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  align-items: flex-start;
+}
+
+.param-row > * {
+  flex: 1 1 220px;
+  min-width: 0;
+  max-width: 340px;
+}
+
+.run-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.stats-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.results {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+  overflow-x: auto;
+}
+
 /* ---------- misc ---------- */
 
 .centered {

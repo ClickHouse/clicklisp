@@ -60,9 +60,7 @@
          :order-by (dow hour)))))
 
 ;; Local git-import tables by default. To aim at the playground's
-;; ClickHouse-repo mirror instead, replace the call below with:
-;;
-;;   (def-repo-health :commits git.clickhouse-commits
-;;                    :file-changes git.clickhouse-file-changes
-;;                    :line-changes git.clickhouse-line-changes)
+;; ClickHouse-repo mirror instead, load repo-health-playground.lisp after
+;; this file -- it re-registers the same four names against the
+;; git.clickhouse_* tables.
 (def-repo-health)

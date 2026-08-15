@@ -85,6 +85,136 @@
     0))
 
 ;;; ---------------------------------------------------------------------
+;;; clicklisp rules json: machine-readable rule dumps
+
+(defun json-string-literal (string)
+  "Render STRING as a double-quoted JSON string literal. The output is
+pure ASCII (control characters and everything past ~ escape to \\uXXXX,
+astral code points as UTF-16 surrogate pairs), which makes it immune to
+stream external-format differences."
+  (with-output-to-string (out)
+    (flet ((escape (code)
+             (format out "\\u~(~4,'0x~)" code)))
+      (write-char #\" out)
+      (loop for char across string
+            for code = (char-code char)
+            do (cond ((char= char #\") (write-string "\\\"" out))
+                     ((char= char #\\) (write-string "\\\\" out))
+                     ((char= char #\Newline) (write-string "\\n" out))
+                     ((char= char #\Tab) (write-string "\\t" out))
+                     ((char= char #\Return) (write-string "\\r" out))
+                     ((< code 32) (escape code))
+                     ((> code #xFFFF)
+                      (let ((offset (- code #x10000)))
+                        (escape (+ #xD800 (ash offset -10)))
+                        (escape (+ #xDC00 (logand offset #x3FF)))))
+                     ((> code 126) (escape code))
+                     (t (write-char char out))))
+      (write-char #\" out))))
+
+(defun rule-params (rule)
+  "The {name:Type} query parameters in RULE's query, as a list of
+\(NAME . TYPE) rendered strings, deduplicated by name in first-appearance
+order. Parameters spliced in through (raw \"...\") strings are not seen."
+  (let ((params '()))
+    (labels ((param-form-p (form)
+               (and (head-name-p form "PARAM")
+                    (consp (rest form))
+                    (consp (cddr form))
+                    (null (cdddr form))))
+             (record (name type)
+               ;; render exactly as the compiler's param special form does
+               (let ((rendered (etypecase name
+                                 (string name)
+                                 (symbol (substitute #\_ #\- (symbol-sql-name name))))))
+                 (unless (assoc rendered params :test #'string=)
+                   (push (cons rendered (type-sql type)) params))))
+             (walk (form)
+               (cond ((param-form-p form)
+                      (record (second form) (third form)))
+                     ((consp form)
+                      (walk (car form))
+                      (walk (cdr form)))
+                     ;; vector literals compile element-wise, so params
+                     ;; can hide inside them (strings hold no forms)
+                     ((and (vectorp form) (not (stringp form)))
+                      (map nil #'walk form)))))
+      (walk (rule-query rule)))
+    (nreverse params)))
+
+(defun rule-definition-form (rule)
+  "Rebuild the DEFRULE form (DEFQUERY when severity-free) that would
+define RULE, as data."
+  (let ((severity (rule-severity rule))
+        (options '()))
+    (when (rule-tags rule)
+      (setf options (list* :tags (rule-tags rule) options)))
+    (when severity
+      (setf options (list* :severity severity options)))
+    (when (rule-description rule)
+      (setf options (list* :description (rule-description rule) options)))
+    (list (if severity 'defrule 'defquery)
+          (intern (string-upcase (rule-name rule)) '#:clicklisp.forms)
+          options
+          (rule-query rule))))
+
+(defun rule-form-text (rule)
+  "RULE's definition form, pretty-printed the way rule files write it."
+  (let ((*package* (find-package '#:clicklisp.forms))
+        (*print-pretty* t)
+        (*print-case* :downcase)
+        (*print-right-margin* 78)
+        (*print-level* nil)
+        (*print-length* nil)
+        (*print-readably* nil))
+    (write-to-string (rule-definition-form rule))))
+
+(defun print-rule-json (rule stream)
+  (let ((severity (rule-severity rule)))
+    (format stream "    {~%")
+    (format stream "      \"name\": ~A,~%"
+            (json-string-literal (rule-name rule)))
+    (format stream "      \"description\": ~A,~%"
+            (if (rule-description rule)
+                (json-string-literal (rule-description rule))
+                "null"))
+    (format stream "      \"severity\": ~A,~%"
+            (if severity
+                (json-string-literal (string-downcase (symbol-name severity)))
+                "null"))
+    (format stream "      \"tags\": [~{~A~^, ~}],~%"
+            (mapcar (lambda (tag)
+                      (json-string-literal (string-downcase (symbol-name tag))))
+                    (rule-tags rule)))
+    (format stream "      \"params\": [~{~A~^, ~}],~%"
+            (mapcar (lambda (param)
+                      (format nil "{\"name\": ~A, \"type\": ~A}"
+                              (json-string-literal (car param))
+                              (json-string-literal (cdr param))))
+                    (rule-params rule)))
+    (format stream "      \"sql\": ~A,~%"
+            (json-string-literal (rule-sql rule)))
+    (format stream "      \"sql_pretty\": ~A,~%"
+            (json-string-literal (rule-sql rule :pretty t)))
+    (format stream "      \"form\": ~A~%"
+            (json-string-literal (rule-form-text rule)))
+    (format stream "    }")))
+
+(defun print-rules-json (rules &optional (stream *standard-output*))
+  "Emit RULES as one JSON object carrying both compact and pretty SQL."
+  (format stream "{~%")
+  (format stream "  \"clicklisp\": ~A,~%" (json-string-literal *version*))
+  (cond ((null rules)
+         (format stream "  \"rules\": []~%"))
+        (t
+         (format stream "  \"rules\": [~%")
+         (loop for (rule . more) on rules
+               do (print-rule-json rule stream)
+                  (format stream "~:[~;,~]~%" more))
+         (format stream "  ]~%")))
+  (format stream "}~%"))
+
+;;; ---------------------------------------------------------------------
 ;;; clicklisp rules
 
 (defun cmd-rules (args)
@@ -108,7 +238,7 @@
     ;; the subcommand is the first positional wherever it appears, so
     ;; `rules --load f.lisp sql --all` works like `rules sql --load f.lisp --all`
     (let ((subcommand (if (and positionals
-                               (member (first positionals) '("list" "sql")
+                               (member (first positionals) '("list" "sql" "json")
                                        :test #'string=))
                           (pop positionals)
                           "list"))
@@ -141,7 +271,19 @@
                      (let ((severity (rule-severity rule)))
                        (and severity (string-downcase (symbol-name severity))))
                      (rule-description rule)
-                     (rule-sql rule :pretty pretty)))))))
+                     (rule-sql rule :pretty pretty)))))
+        ((string= subcommand "json")
+         ;; --pretty is accepted but a no-op here: the JSON always carries
+         ;; both compact and pretty SQL.
+         (let ((rules (cond (all (list-rules))
+                            (names (mapcar (lambda (name)
+                                             (or (find-rule name)
+                                                 (usage-error "rules: unknown rule ~A" name)))
+                                           names))
+                            (t (usage-error "rules json: pass rule names or --all")))))
+           (when (null rules)
+             (usage-error "rules json: no rules loaded (use --load FILE)"))
+           (print-rules-json rules)))))
     0))
 
 ;;; ---------------------------------------------------------------------
@@ -240,6 +382,9 @@ commands:~%~
   rules [list] [--load FILE]                 list loaded rules and queries~%~
   rules sql [--load FILE] [--pretty] [--all | NAME ...]~%~
                                              emit SQL for rules and queries~%~
+  rules json [--load FILE] [--all | NAME ...]~%~
+                                             machine-readable JSON (with both~%~
+                                             compact and pretty SQL)~%~
   udf --fn NAME [--load FILE] [--chunked] [--watch FILE]~%~
                                              serve a UDF over stdin/stdout~%~
                                              (TabSeparated, for ClickHouse~%~

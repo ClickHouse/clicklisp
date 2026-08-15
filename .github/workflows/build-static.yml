@@ -9,6 +9,9 @@ name: build-static
 on:
   workflow_call: {}
 
+permissions:
+  contents: read
+
 jobs:
   build:
     name: static ${{ matrix.arch }}
@@ -22,13 +25,13 @@ jobs:
             arch: aarch64
     runs-on: ${{ matrix.runner }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       # ~200MB static ECL toolchain, rebuilt only when the version or the
       # build script changes. runner.arch is in the key because runner.os
       # is "Linux" on both architectures.
       - name: Cache static ECL toolchain
-        uses: actions/cache@v6
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: .cache/ecl-static
           key: ecl-static-26.5.5-${{ runner.arch }}-${{ hashFiles('scripts/build-static.sh') }}
@@ -36,11 +39,15 @@ jobs:
       - name: Build static binary in Alpine
         run: |
           mkdir -p .cache/ecl-static
+          # alpine:3.22 pinned to its manifest-list digest (covers amd64+arm64);
+          # dependabot cannot see inside run: blocks, so bump it by hand with
+          # `docker manifest inspect alpine:3.22` (or the registry API) on upgrades.
           docker run --rm \
             -v "$GITHUB_WORKSPACE:/src" \
             -v "$GITHUB_WORKSPACE/.cache/ecl-static:/cache" \
             -w /src \
-            alpine:3.22 sh scripts/build-static.sh
+            alpine:3.22@sha256:14358309a308569c32bdc37e2e0e9694be33a9d99e68afb0f5ff33cc1f695dce \
+            sh scripts/build-static.sh
           # the container runs as root; later steps and the cache post-step
           # run as the unprivileged runner user
           sudo chown -R "$(id -u):$(id -g)" dist bin .cache/ecl-static
@@ -53,7 +60,7 @@ jobs:
           "./dist/clicklisp-linux-${{ matrix.arch }}" version
           echo '(select (1))' | "./dist/clicklisp-linux-${{ matrix.arch }}" compile
 
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: clicklisp-linux-${{ matrix.arch }}
           path: dist/clicklisp-linux-${{ matrix.arch }}

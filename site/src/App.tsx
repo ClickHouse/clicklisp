@@ -5,6 +5,7 @@ import Language from "./sections/Language";
 import Rules from "./sections/Rules";
 import Udfs from "./sections/Udfs";
 import Playground from "./sections/Playground";
+import Demos from "./sections/Demos";
 import GetStarted from "./sections/GetStarted";
 import Faq from "./sections/Faq";
 import Footer from "./sections/Footer";
@@ -20,6 +21,7 @@ export default function App() {
         <Rules />
         <Udfs />
         <Playground />
+        <Demos />
         <GetStarted />
         <Faq />
       </main>

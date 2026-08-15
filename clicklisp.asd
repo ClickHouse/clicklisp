@@ -17,6 +17,7 @@
   :serial t
   :components ((:file "tests/harness")
                (:file "tests/compiler-tests")
+               (:file "tests/rules-json-tests")
                (:file "tests/udf-tests"))
   :perform (test-op (o c)
              (unless (symbol-call '#:clicklisp/test '#:run-tests)

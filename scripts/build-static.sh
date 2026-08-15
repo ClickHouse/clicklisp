@@ -11,7 +11,19 @@
 # dependencies, ready for ClickHouse's user_scripts_path.
 set -eu
 
+# NOTE: editing this script changes its hashFiles() cache key in CI, so
+# the static-ECL toolchain rebuilds once per arch (~3 minutes) -- that is
+# expected; no manual key bump needed.
+#
+# Fail closed: overriding ECL_VERSION without a matching ECL_SHA256 would
+# silently skip verification of an unexpected tarball.
+if [ -n "${ECL_VERSION:-}" ] && [ -z "${ECL_SHA256:-}" ]; then
+    echo "ERROR: ECL_VERSION is overridden but ECL_SHA256 is not." >&2
+    echo "Supply both, e.g. ECL_SHA256=\$(sha256sum ecl-\$ECL_VERSION.tgz)" >&2
+    exit 2
+fi
 ECL_VERSION="${ECL_VERSION:-26.5.5}"
+ECL_SHA256="${ECL_SHA256:-a01a5bcda8c5b73e59dda3494fd13e5fec5db6aa1dad782c3cc3bb57f1633435}"
 ECL_TARBALL="https://ecl.common-lisp.dev/static/files/release/ecl-${ECL_VERSION}.tgz"
 ECL_PREFIX="/cache/ecl-${ECL_VERSION}-static"
 ARCH="$(uname -m)"
@@ -20,9 +32,12 @@ apk add --no-cache build-base gmp-dev gmp-static curl file
 
 if [ ! -x "$ECL_PREFIX/bin/ecl" ]; then
     echo "=== building static ECL $ECL_VERSION for musl/$ARCH"
-    rm -rf /tmp/ecl-src
+    rm -rf /tmp/ecl-src /tmp/ecl.tgz
     mkdir -p /tmp/ecl-src
-    curl -fsSL "$ECL_TARBALL" | tar xz -C /tmp/ecl-src --strip-components=1
+    curl -fsSL "$ECL_TARBALL" -o /tmp/ecl.tgz
+    echo "$ECL_SHA256  /tmp/ecl.tgz" | sha256sum -c -
+    tar xzf /tmp/ecl.tgz -C /tmp/ecl-src --strip-components=1
+    rm /tmp/ecl.tgz
     cd /tmp/ecl-src
     # In-tree configure (ECL's wrapper does not support external build dirs).
     # The bundled GMP is ancient (4.2.1); Alpine's gmp-static provides a

@@ -5,6 +5,9 @@ on:
     branches: [main]
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
   # Unit tests + a full binary build with the distro ECL, on both
   # architectures.
@@ -16,7 +19,7 @@ jobs:
         runner: [ubuntu-24.04, ubuntu-24.04-arm]
     runs-on: ${{ matrix.runner }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - name: Install ECL
         run: |
           sudo apt-get update
@@ -40,6 +43,7 @@ jobs:
     runs-on: ${{ matrix.runner }}
     env:
       ECL_VERSION: "26.5.5"
+      ECL_SHA256: "a01a5bcda8c5b73e59dda3494fd13e5fec5db6aa1dad782c3cc3bb57f1633435"
       # object-size, shift-base and pointer-overflow fire by design in
       # ECL's core (tagged fixnums, stack-allocated frames) -- ~120 known
       # reports. Everything else in UBSan plus all of ASan stays on.
@@ -54,14 +58,14 @@ jobs:
       ASAN_OPTIONS: "detect_leaks=0:detect_stack_use_after_return=0:allow_user_segv_handler=1"
       UBSAN_OPTIONS: "print_stacktrace=1"
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - name: Install dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y libgmp-dev
       - name: Cache sanitized ECL
         id: cache-ecl
-        uses: actions/cache@v6
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: ~/ecl-asan
           # bump the -vN suffix when SAN_CFLAGS or configure flags change
@@ -70,6 +74,7 @@ jobs:
         if: steps.cache-ecl.outputs.cache-hit != 'true'
         run: |
           curl -fsSL "https://ecl.common-lisp.dev/static/files/release/ecl-${ECL_VERSION}.tgz" -o ecl.tgz
+          echo "${ECL_SHA256}  ecl.tgz" | sha256sum -c -
           mkdir ecl-src
           tar xzf ecl.tgz -C ecl-src --strip-components=1
           cd ecl-src

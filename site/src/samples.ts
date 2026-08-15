@@ -25,7 +25,8 @@ export const ruleExample = `;; rules.lisp
 
 export const rulesCli = `clicklisp rules --load rules.lisp                 # list
 clicklisp rules sql --load rules.lisp --all       # emit SQL for all
-clicklisp rules sql --load rules.lisp ssh-bruteforce`;
+clicklisp rules sql --load rules.lisp ssh-bruteforce
+clicklisp rules json --load rules.lisp --all      # machine-readable JSON`;
 
 export const macroExample = `(defmacro def-price-league (ptype)
   \`(defquery ,(intern (format nil "TOP-~A-DISTRICTS" ptype))

@@ -3,13 +3,8 @@ name: pages
 on:
   push:
     branches: [main]
-    paths: ["site/**", "logo.png", ".github/workflows/pages.yml"]
+    paths: ["site/**", "logo.png", "examples/**", "src/**", "clicklisp.asd", "Makefile", "build/build.lisp", "version.sexp", "scripts/gen-site-data.sh", ".github/workflows/pages.yml"]
   workflow_dispatch:
-
-permissions:
-  contents: read
-  pages: write
-  id-token: write
 
 # One deploy at a time; let an in-flight production deploy finish.
 concurrency:
@@ -19,12 +14,19 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      pages: write # configure-pages (enablement: true) reads/creates the Pages site via the API
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/configure-pages@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6
         with:
           enablement: true
-      - uses: actions/setup-node@v7
+      - name: Install ECL
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ecl
+      - name: Build clicklisp and generate demo data
+        run: make all site-data
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: 22
           cache: npm
@@ -35,16 +37,19 @@ jobs:
           cp ../logo.png public/logo.png  # keep the site logo in sync with the repo's
           npm ci
           npm run build
-      - uses: actions/upload-pages-artifact@v5
+      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5
         with:
           path: site/dist
 
   deploy:
     needs: build
     runs-on: ubuntu-24.04
+    permissions:
+      pages: write
+      id-token: write
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - id: deployment
-        uses: actions/deploy-pages@v5
+        uses: actions/deploy-pages@cd2ce8fcbc39b97be8ca5fce6e763baed58fa128 # v5
