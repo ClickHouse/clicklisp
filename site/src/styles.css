@@ -433,9 +433,16 @@ code {
   text-align: center;
 }
 
+/* The pane is a flex item of the click-ui Panel (column, align-items:
+   center). A flex item's default min-width:auto lets the white-space: pre
+   code force it to its content width, so on phones it pushed the whole
+   document wider than the viewport. A shrinkable width keeps it inside the
+   panel and lets the CodeBlock's own overflow-x: auto scroll long lines. */
 .get-started-panel .codewrap {
-  margin: 26px auto 0;
+  width: 100%;
+  min-width: 0;
   max-width: 860px;
+  margin: 26px auto 0;
 }
 
 .link-row {
