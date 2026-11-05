@@ -37,8 +37,6 @@ export default function RuleCard({ rule, demo }: Readonly<{ rule: RuleJson; demo
   const [error, setError] = useState<string | null>(null);
   const controllerRef = useRef<AbortController | null>(null);
 
-  const nonRunnableReason = demo.nonRunnable?.[rule.name];
-
   // Validation happens on Run only — it never blocks typing.
   function validate(): boolean {
     const next: Record<string, string> = {};
@@ -105,47 +103,39 @@ export default function RuleCard({ rule, demo }: Readonly<{ rule: RuleJson; demo
           {rule.sql_pretty}
         </CodeBlock>
       </CodePane>
-      {nonRunnableReason ? (
-        <div className="run-row">
-          <Badge text={`not runnable here — ${nonRunnableReason}`} state="neutral" />
+      {rule.params.length > 0 && (
+        <div className="param-row">
+          {rule.params.map((p) => (
+            <TextField
+              key={p.name}
+              label={demo.params[p.name]?.label ?? `${p.name} (${p.type})`}
+              value={values[p.name] ?? ""}
+              error={fieldErrors[p.name]}
+              onChange={(inputValue) => {
+                setValues((prev) => ({ ...prev, [p.name]: inputValue }));
+                setFieldErrors((prev) => {
+                  if (!(p.name in prev)) return prev;
+                  const rest = { ...prev };
+                  delete rest[p.name];
+                  return rest;
+                });
+              }}
+            />
+          ))}
         </div>
-      ) : (
-        <>
-          {rule.params.length > 0 && (
-            <div className="param-row">
-              {rule.params.map((p) => (
-                <TextField
-                  key={p.name}
-                  label={demo.params[p.name]?.label ?? `${p.name} (${p.type})`}
-                  value={values[p.name] ?? ""}
-                  error={fieldErrors[p.name]}
-                  onChange={(inputValue) => {
-                    setValues((prev) => ({ ...prev, [p.name]: inputValue }));
-                    setFieldErrors((prev) => {
-                      if (!(p.name in prev)) return prev;
-                      const rest = { ...prev };
-                      delete rest[p.name];
-                      return rest;
-                    });
-                  }}
-                />
-              ))}
-            </div>
-          )}
-          <div className="run-row">
-            <Button type="primary" iconLeft="play" loading={running} disabled={running} onClick={run}>
-              Run
-            </Button>
-            {running && (
-              <Button type="secondary" onClick={() => controllerRef.current?.abort()}>
-                Cancel
-              </Button>
-            )}
-          </div>
-          {error !== null && <Alert state="danger" text={error} showIcon />}
-          {result !== null && <ResultsTable result={result} />}
-        </>
       )}
+      <div className="run-row">
+        <Button type="primary" iconLeft="play" loading={running} disabled={running} onClick={run}>
+          Run
+        </Button>
+        {running && (
+          <Button type="secondary" onClick={() => controllerRef.current?.abort()}>
+            Cancel
+          </Button>
+        )}
+      </div>
+      {error !== null && <Alert state="danger" text={error} showIcon />}
+      {result !== null && <ResultsTable result={result} />}
     </div>
   );
 }

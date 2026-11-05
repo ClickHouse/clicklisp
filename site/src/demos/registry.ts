@@ -23,8 +23,8 @@ export interface Demo {
   loadCommand: string;
   params: Record<string, ParamConfig>;
   perRuleParamDefaults?: Record<string, Record<string, string | (() => string)>>;
-  /** Rule name → short reason it cannot run against the public playground. */
-  nonRunnable?: Record<string, string>;
+  /** Rules in the compiled library that the demo page leaves out entirely. */
+  hiddenRules?: readonly string[];
 }
 
 const DATETIME = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/;
@@ -87,9 +87,9 @@ export const DEMOS: Record<DemoSlug, Demo> = {
     params: {
       term: { label: "term (String)", default: "clojure" },
     },
-    nonRunnable: {
-      "shouting-titles": "needs the local clicklisp_shout executable UDF",
-    },
+    // Calls the clicklisp_shout executable UDF, which only a local server
+    // with examples/udfs/text.lisp wired in has — not the public playground.
+    hiddenRules: ["shouting-titles"],
   },
   "repo-health": {
     slug: "repo-health",

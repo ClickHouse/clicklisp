@@ -20,12 +20,14 @@ export default function Demos() {
         gridTemplateColumns="repeat(2, minmax(0, 1fr))"
         gap="md"
         fillWidth
+        maxWidth="940px"
       >
         {DEMO_ORDER.map((slug) => {
           const demo = DEMOS[slug];
           return (
             <CardSecondary
               key={demo.slug}
+              className="feature-card"
               icon={demo.icon}
               title={demo.title}
               description={demo.blurb}
