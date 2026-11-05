@@ -17,7 +17,6 @@ const COLS: Array<{ heading: string; links: Array<[string, string]> }> = [
       ["clickhouse.com", "https://clickhouse.com"],
       ["SQL playground", "https://sql.clickhouse.com"],
       ["Example datasets", "https://clickhouse.com/docs/getting-started/example-datasets"],
-      ["click-ui", "https://github.com/ClickHouse/click-ui"],
     ],
   },
   {
@@ -57,7 +56,7 @@ export default function Footer() {
         <span>Apache-2.0 · {VERSION}</span>
         <span>
           Built with{" "}
-          <a className="footer-link" href="https://github.com/ClickHouse/click-ui">
+          <a className="footer-link" href="https://github.com/ClickHouse/click-ui" target="_blank" rel="noreferrer">
             @clickhouse/click-ui
           </a>
         </span>

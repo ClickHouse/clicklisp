@@ -88,7 +88,8 @@ The same queries run as [live demos](https://cl.clickhouse.com/#demos)
 in the browser: the site's deploy workflow builds the binary, compiles
 the example libraries with `rules json`, and each demo page sends the
 compiled SQL to the playground with typed `param_` bindings — no server
-of ours in the path.
+of ours in the path. Queries that need a local executable UDF
+(`shouting-titles` in hackernews.lisp) stay off the demo pages.
 
 ## The query language
 

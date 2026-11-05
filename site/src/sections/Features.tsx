@@ -46,10 +46,12 @@ export default function Features() {
         gridTemplateColumns="repeat(2, minmax(0, 1fr))"
         gap="md"
         fillWidth
+        maxWidth="940px"
       >
         {FEATURES.map((f) => (
           <CardSecondary
             key={f.title}
+            className="feature-card"
             icon={f.icon}
             title={f.title}
             description={f.description}

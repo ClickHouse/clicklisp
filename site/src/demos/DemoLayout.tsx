@@ -8,6 +8,7 @@ import RuleCard from "./RuleCard";
 // absolute paths ("/#demos") — a bare #hash does not cross pages.
 export default function DemoLayout({ demo, data }: Readonly<{ demo: Demo; data: RulesJson }>) {
   const stars = useGitHubStars();
+  const rules = data.rules.filter((rule) => !demo.hiddenRules?.includes(rule.name));
   return (
     <>
       <header className="site-header">
@@ -67,7 +68,7 @@ export default function DemoLayout({ demo, data }: Readonly<{ demo: Demo; data: 
             </CodePane>
           </div>
           <div className="rule-list">
-            {data.rules.map((rule) => (
+            {rules.map((rule) => (
               <RuleCard key={rule.name} rule={rule} demo={demo} />
             ))}
           </div>

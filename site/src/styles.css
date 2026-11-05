@@ -348,16 +348,20 @@ code {
 
 /* ---------- grids ---------- */
 
-/* Centered 2x2; single column on narrow screens. */
+/* Centered 2x2 of CardSecondary. The 940px cap is set through
+   GridContainer's maxWidth prop, not here: click-ui's per-component CSS is
+   code-split into the landing page's own stylesheet, which loads after this
+   file, so its max-width declaration wins an equal-specificity tie. The
+   cards drop click-ui's 320-420px width clamp so each fills its cell;
+   clamped cards start-align inside wider cells and the whole block sits
+   off-center. GridContainer collapses to one column at <=768px by itself. */
 .feature-grid {
   margin: 34px auto 0;
-  max-width: 940px;
 }
 
-@media (max-width: 620px) {
-  .feature-grid {
-    grid-template-columns: 1fr !important;
-  }
+.feature-grid .feature-card {
+  min-width: 0;
+  max-width: none;
 }
 
 .split {
