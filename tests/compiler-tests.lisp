@@ -41,6 +41,11 @@
   (is= "SELECT (1 + 2 + 3)" (cq '(select ((+ 1 2 3)))))
   (is= "SELECT (1 - 2)" (cq '(select ((- 1 2)))))
   (is= "SELECT (-x)" (cq '(select ((- x)))))
+  ;; negating a negative operand must not read --, which opens a comment
+  (is= "SELECT (-(-5))" (cq '(select ((- -5)))))
+  (is= "SELECT (-(-1.5))" (cq '(select ((- -1.5)))))
+  (is= "SELECT (-(-x))" (cq '(select ((- (- x))))))
+  (is= "SELECT (x - -5)" (cq '(select ((- x -5)))))
   (is= "SELECT (a * b)" (cq '(select ((* a b)))))
   (is= "SELECT (a / b)" (cq '(select ((/ a b)))))
   (is= "SELECT (a % b)" (cq '(select ((% a b)))))
