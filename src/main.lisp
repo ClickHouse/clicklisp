@@ -372,26 +372,28 @@ define RULE, as data."
 ;;; Entry point
 
 (defun print-usage (&optional (stream *standard-output*))
-  (format stream "clicklisp ~A - s-expressions in, ClickHouse out~%~
-~%~
-usage: clicklisp COMMAND [options]~%~
-~%~
-commands:~%~
-  compile [--pretty] [-e SEXPR] [FILE ...]   compile query forms to SQL~%~
-                                             (reads stdin when no input given)~%~
-  rules [list] [--load FILE]                 list loaded rules and queries~%~
-  rules sql [--load FILE] [--pretty] [--all | NAME ...]~%~
-                                             emit SQL for rules and queries~%~
-  rules json [--load FILE] [--all | NAME ...]~%~
-                                             machine-readable JSON (with both~%~
-                                             compact and pretty SQL)~%~
-  udf --fn NAME [--load FILE] [--chunked] [--watch FILE]~%~
-                                             serve a UDF over stdin/stdout~%~
-                                             (TabSeparated, for ClickHouse~%~
-                                             executable UDFs)~%~
-  udf --list [--load FILE]                   list available UDFs~%~
-  repl [--load FILE]                         interactive Lisp REPL~%~
-  version                                    print version~%~
+  ;; ~: before each newline drops the newline but keeps the next line's
+  ;; leading spaces; a bare ~ would swallow the indentation as well
+  (format stream "clicklisp ~A - s-expressions in, ClickHouse out~%~:
+~%~:
+usage: clicklisp COMMAND [options]~%~:
+~%~:
+commands:~%~:
+  compile [--pretty] [-e SEXPR] [FILE ...]   compile query forms to SQL~%~:
+                                             (reads stdin when no input given)~%~:
+  rules [list] [--load FILE]                 list loaded rules and queries~%~:
+  rules sql [--load FILE] [--pretty] [--all | NAME ...]~%~:
+                                             emit SQL for rules and queries~%~:
+  rules json [--load FILE] [--all | NAME ...]~%~:
+                                             machine-readable JSON (with both~%~:
+                                             compact and pretty SQL)~%~:
+  udf --fn NAME [--load FILE] [--chunked] [--watch FILE]~%~:
+                                             serve a UDF over stdin/stdout~%~:
+                                             (TabSeparated, for ClickHouse~%~:
+                                             executable UDFs)~%~:
+  udf --list [--load FILE]                   list available UDFs~%~:
+  repl [--load FILE]                         interactive Lisp REPL~%~:
+  version                                    print version~%~:
   help                                       this text~%"
           *version*))
 
