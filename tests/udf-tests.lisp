@@ -72,6 +72,41 @@
   (signals-sql-error
    (run-udf-on 'test-upcase (format nil "3~%a~%") :chunked t)))
 
+(deftest udf-hot-reload
+  ;; --watch must re-LOAD a file the way --load read it the first time:
+  ;; in the forms package, with float literals at Float64 precision
+  (let ((path (merge-pathnames "clicklisp-test-reload.lisp"
+                               (uiop:temporary-directory))))
+    (flet ((write-file (text)
+             (with-open-file (s path :direction :output :if-exists :supersede)
+               (write-string text s)))
+           (answer ()
+             (run-udf-on 'test-reload (format nil "x~%")))
+           (reload (watcher)
+             ;; the watcher reports on *error-output*
+             (with-output-to-string (*error-output*)
+               (funcall watcher))))
+      (unwind-protect
+           (progn
+             (write-file "(defudf test-reload (s) (declare (ignore s)) (/ 1.0 3))")
+             (clicklisp::load-user-file path)
+             (is (search "0.333333333333" (answer)))
+             (let ((watcher (clicklisp::make-watcher path)))
+               ;; an unchanged file is left alone
+               (is= "" (reload watcher))
+               ;; each rewrite changes the file's length, so its stamp
+               ;; differs even when both writes land in the same second
+               (write-file "(defudf test-reload (s) (declare (ignore s)) (/ 2.0 3)) ; edited")
+               (is (search "reloaded" (reload watcher)))
+               (is (search "0.666666666666" (answer)))
+               ;; a file that does not load is reported, and the last
+               ;; good definition keeps serving
+               (write-file "(defudf test-reload (s) (declare (ignore s)) (/ 4.0 3")
+               (is (search "failed" (reload watcher)))
+               (is (search "0.666666666666" (answer)))))
+        (when (probe-file path)
+          (delete-file path))))))
+
 (deftest builtin-udfs
   (let ((entropy-fn (clicklisp::udf-function (find-udf 'entropy)))
         (rot13-fn (clicklisp::udf-function (find-udf 'rot13))))
