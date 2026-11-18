@@ -113,6 +113,7 @@ written in any package and built as plain data.
 | `(cast x :uint64)`, `(cast x (:nullable :uint64))` | `CAST(x AS UInt64)`, `CAST(x AS Nullable(UInt64))` |
 | `(param user-id :uint64)` | `{user_id:UInt64}` — server-side query parameters |
 | `(as expr alias)`, `(aref tags 1)`, `(interval 10 :minutes)` | `expr AS alias`, `tags[1]`, `INTERVAL 10 MINUTE` |
+| `:from (numbers 10)`, `:from (as (s3 "https://..." "CSV") t)` | `FROM numbers(10)`, `FROM s3('https://...', 'CSV') AS t` — table functions, in `:from` and `:join` |
 | `(raw "now() - 1")`, `(fn "toIPv4" ip)` | verbatim escape hatches |
 
 `select` takes a column list (or `*`, or `(:distinct ...)`) followed by
