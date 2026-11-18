@@ -151,6 +151,15 @@
     (is (= 1 code))))
 
 (deftest cli-regressions
+  ;; the command list keeps its indentation: a bare ~ at the end of a line
+  ;; of the format string would swallow the next line's leading spaces
+  (let ((usage (with-output-to-string (out)
+                 (clicklisp::print-usage out))))
+    (is (search (format nil "~%  compile [--pretty]") usage))
+    (is (search (format nil "~%  help ") usage))
+    (is (search (format nil "~%~A(reads stdin"
+                        (make-string 45 :initial-element #\Space))
+                usage)))
   ;; float literals survive at Float64 precision through the CLI reader
   (let ((output (with-output-to-string (out)
                   (let ((*standard-output* out))
