@@ -90,9 +90,16 @@
       (t (sql-fail form "expression head must be a symbol or string")))))
 
 (defun generic-call-sql (form)
-  (format nil "~A(~{~A~^, ~})"
-          (function-name-sql (first form))
-          (mapcar #'expr-sql (rest form))))
+  (let ((name (function-name-sql (first form))))
+    (format nil "~A(~{~A~^, ~})"
+            name
+            (mapcar (lambda (argument)
+                      ;; the view table function takes its query bare:
+                      ;; ClickHouse rejects view((SELECT ...))
+                      (if (and (string= name "view") (query-form-p argument))
+                          (query-sql argument)
+                          (expr-sql argument)))
+                    (rest form)))))
 
 (defun infix-sql (op args)
   (format nil "(~A)"
@@ -380,6 +387,22 @@ expression (e.g. a table identifier)."
       (and (head-name-p spec "AS")
            (head-name-p (second spec) "FINAL"))))
 
+(defun table-function-form-p (form)
+  "A call that can stand in table position: a plain function call such as
+(numbers 10), or the verbatim (fn \"name\" ...) and (raw \"...\"). Operators,
+the other special forms and keyword-headed lists (a misplaced join spec)
+are not tables."
+  (and (consp form)
+       (let ((head (first form)))
+         (or (stringp head)
+             (and head
+                  (symbolp head)
+                  (not (keywordp head))
+                  (let ((name (string-upcase (symbol-name head))))
+                    (or (string= name "FN")
+                        (string= name "RAW")
+                        (not (gethash name *special-forms*)))))))))
+
 (defun table-ref-sql (spec)
   (cond
     ((and spec (symbolp spec)) (identifier-sql spec))
@@ -410,6 +433,8 @@ expression (e.g. a table identifier)."
        (when (table-ref-final-p (second spec))
          (sql-fail spec "redundant FINAL in ~S" spec))
        (format nil "~A FINAL" (table-ref-sql (second spec)))))
+    ;; table functions: (numbers 10), (s3 "https://..." "CSV")
+    ((table-function-form-p spec) (expr-sql spec))
     (t (sql-fail spec "bad table reference ~S" spec))))
 
 (defparameter +join-kinds+

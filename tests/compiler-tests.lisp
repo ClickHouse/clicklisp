@@ -182,6 +182,36 @@
        (cq '(select (a) :from t :left-array-join ((as tags tag)))))
   (is= "SELECT EXISTS (SELECT 1)" (cq '(select ((exists (select (1))))))))
 
+(deftest table-functions
+  (is= "SELECT number FROM numbers(10)"
+       (cq '(select (number) :from (numbers 10))))
+  (is= "SELECT * FROM s3('https://example.com/data.csv', 'CSVWithNames')"
+       (cq '(select * :from (s3 "https://example.com/data.csv" "CSVWithNames"))))
+  (is= "SELECT * FROM remote('host:9000', system.one)"
+       (cq '(select * :from (remote "host:9000" system.one))))
+  ;; aliases and joins take them like any other table
+  (is= "SELECT n.number FROM numbers(10) AS n"
+       (cq '(select (n.number) :from (as (numbers 10) n))))
+  (is= "SELECT a FROM t CROSS JOIN numbers(3) AS n"
+       (cq '(select (a) :from t :join (:cross (as (numbers 3) n)))))
+  ;; names follow the function rules: kebab-case to camelCase, snake_case as is
+  (is= "SELECT * FROM generateSeries(1, 5)"
+       (cq '(select * :from (generate-series 1 5))))
+  (is= "SELECT * FROM numbers_mt(10)"
+       (cq '(select * :from (numbers_mt 10))))
+  ;; view takes its query bare: ClickHouse rejects view((SELECT ...))
+  (is= "SELECT x FROM view(SELECT 1 AS x)"
+       (cq '(select (x) :from (view (select ((as 1 x)))))))
+  (is= "SELECT x FROM cluster('c', view(SELECT 1 AS x))"
+       (cq '(select (x) :from (cluster "c" (view (select ((as 1 x))))))))
+  ;; the verbatim escape hatches work in table position too
+  (is= "SELECT * FROM numbers(10)" (cq '(select * :from (fn "numbers" 10))))
+  (is= "SELECT * FROM numbers(10)" (cq '(select * :from (raw "numbers(10)"))))
+  ;; operators, other special forms and a misplaced join spec are not tables
+  (signals-sql-error (cq '(select (a) :from (+ 1 2))))
+  (signals-sql-error (cq '(select (a) :from (list 1 2))))
+  (signals-sql-error (cq '(select (a) :from (:left t2 :on (= 1 1))))))
+
 (deftest ctes-and-unions
   (is= "WITH total AS (SELECT count() FROM t) SELECT total"
        (cq '(select (total) :with ((total (select ((count)) :from t))))))
