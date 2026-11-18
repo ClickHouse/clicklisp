@@ -44,18 +44,30 @@ jobs:
     env:
       ECL_VERSION: "26.5.5"
       ECL_SHA256: "a01a5bcda8c5b73e59dda3494fd13e5fec5db6aa1dad782c3cc3bb57f1633435"
-      # object-size, shift-base and pointer-overflow fire by design in
-      # ECL's core (tagged fixnums, stack-allocated frames) -- ~120 known
-      # reports. Everything else in UBSan plus all of ASan stays on.
+      # Five UBSan checks fire by design in ECL's core and in the C it
+      # generates, and are switched off:
+      #   object-size, shift-base, pointer-overflow: tagged fixnums and
+      #     stack-allocated frames, ~120 reports a run
+      #   alignment: objects are read through union cl_lispunion, which
+      #     asks for more alignment than they have, and cons cells through
+      #     tagged pointers, ~18,000 reports a run
+      #   nonnull-attribute: the reader zeroes an empty block with
+      #     memset(NULL, 0, 0), one report per process
+      # Everything else in UBSan plus all of ASan stays on. With these
+      # off, the suite and the binary run without a single report.
       SAN_CFLAGS: >-
         -fsanitize=address,undefined
-        -fno-sanitize=object-size,shift-base,pointer-overflow
+        -fno-sanitize=object-size,shift-base,pointer-overflow,alignment,nonnull-attribute
         -fno-omit-frame-pointer -g -O1
       SAN_LDFLAGS: "-fsanitize=address,undefined -g"
       # Boehm GC: leak detection is meaningless under a GC (and LSan is
       # fatal-by-default on Linux); ASan fake stacks are unsafe with the
       # bundled bdwgc 8.2.8 (bdwgc#789).
       ASAN_OPTIONS: "detect_leaks=0:detect_stack_use_after_return=0:allow_user_segv_handler=1"
+      # UBSan reports and carries on by default, which would leave a
+      # finding as one more line in the log of a green job. The two steps
+      # that run clicklisp add halt_on_error=1, so a report fails them;
+      # the ECL build keeps this default.
       UBSAN_OPTIONS: "print_stacktrace=1"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -69,7 +81,7 @@ jobs:
         with:
           path: ~/ecl-asan
           # bump the -vN suffix when SAN_CFLAGS or configure flags change
-          key: ecl-asan-${{ env.ECL_VERSION }}-${{ runner.arch }}-v1
+          key: ecl-asan-${{ env.ECL_VERSION }}-${{ runner.arch }}-v2
       - name: Build ECL with sanitizers
         if: steps.cache-ecl.outputs.cache-hit != 'true'
         run: |
@@ -90,8 +102,12 @@ jobs:
           make -j"$(nproc)"
           make install
       - name: Run test suite under ASan+UBSan
+        env:
+          UBSAN_OPTIONS: "print_stacktrace=1:halt_on_error=1"
         run: make test ECL="$HOME/ecl-asan/bin/ecl"
       - name: Build and smoke the binary under ASan+UBSan
+        env:
+          UBSAN_OPTIONS: "print_stacktrace=1:halt_on_error=1"
         run: make all smoke ECL="$HOME/ecl-asan/bin/ecl"
 
   # The same static musl builds the release pipeline ships.
