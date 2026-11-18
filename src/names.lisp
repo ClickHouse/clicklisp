@@ -83,13 +83,19 @@
       (char<= #\0 char #\9)
       (char= char #\_)))
 
-(defun plain-identifier-p (name)
+(defun plain-name-p (name)
+  "True when NAME is spelled like a bare identifier: a letter or an
+underscore, then letters, digits and underscores. Reserved words pass:
+function and format names such as left, any or Null are legitimate."
   (and (plusp (length name))
        (let ((first (char name 0)))
          (or (char<= #\a first #\z)
              (char<= #\A first #\Z)
              (char= first #\_)))
-       (every #'plain-identifier-char-p name)
+       (every #'plain-identifier-char-p name)))
+
+(defun plain-identifier-p (name)
+  (and (plain-name-p name)
        (not (gethash name +reserved-words+))))
 
 (defun quote-identifier (name)
@@ -132,6 +138,11 @@ still backtick-quoted when they are not plain identifiers."
 ;;; Unknown function symbols map kebab-case to camelCase, which covers the
 ;;; bulk of the ClickHouse function namespace. Irregular names (JSON*,
 ;;; IPv4*, ...) live in a registry that DEFINE-SQL-FUNCTION extends.
+;;;
+;;; A name taken from a symbol or from a string in head position must be a
+;;; plain identifier, so a form built from data cannot smuggle SQL in
+;;; through a function name. Registered names and (fn "name" ...) are the
+;;; verbatim routes, and both are written out on purpose.
 
 (defparameter *function-names* (make-hash-table :test 'equal))
 
@@ -200,17 +211,23 @@ verbatim ClickHouse function name CLICKHOUSE-NAME."
              ("to-datetime-or-null" "toDateTimeOrNull"))
       do (register-sql-function lisp clickhouse))
 
+(defun checked-function-name (name head)
+  (if (plain-name-p name)
+      name
+      (sql-fail head "bad function name ~S: a name that is not a plain ~
+identifier needs (fn \"name\" ...) or define-sql-function" name)))
+
 (defun function-name-sql (head)
   (etypecase head
-    (string head)
+    (string (checked-function-name head head))
     (symbol
      (let* ((name (symbol-sql-name head))
             (registered (gethash (string-downcase name) *function-names*)))
        (cond (registered registered)
-             ;; escaped mixed-case symbols (|arrayMap|) pass through
-             ((some #'upper-case-p name) name)
-             ((find #\- name) (kebab->camel name))
-             (t name))))))
+             ;; escaped mixed-case symbols (|arrayMap|) keep their case
+             ((some #'upper-case-p name) (checked-function-name name head))
+             ((find #\- name) (checked-function-name (kebab->camel name) head))
+             (t (checked-function-name name head)))))))
 
 ;;; ---------------------------------------------------------------------
 ;;; Type names (for CAST, PARAM, ...)

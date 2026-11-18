@@ -137,14 +137,20 @@ write them:
 ```
 
 `(union-all q1 q2)` and `(union-distinct ...)` combine queries. Strings are
-escaped, identifiers are validated or backtick-quoted, every infix
-expression is parenthesized — precedence bugs are structurally impossible,
-and injection requires an explicit `(raw ...)`.
+escaped, identifiers are validated or backtick-quoted, function and format
+names must be plain identifiers, and every infix expression is
+parenthesized, so precedence bugs are structurally impossible. Verbatim
+SQL only goes into a query where a form takes a string for that purpose:
+`(raw "...")`, `(fn "name" ...)`, a type written as a string such as
+`"Array(Point)"`, and the names registered with `define-sql-function` and
+`define-sql-type`.
 
 Unknown functions map kebab→camelCase automatically; teach the compiler
 irregular ClickHouse spellings with
 `(define-sql-function my-fn "MyClickHouseName")` and types with
-`(define-sql-type geo-point "Point")`.
+`(define-sql-type geo-point "Point")`. A function name has to come out as
+a plain identifier; `(fn "quantile(0.9)" price)` is for the ones that do
+not.
 
 The `sql` macro compiles at macroexpansion time — a rule library costs
 nothing at runtime:
