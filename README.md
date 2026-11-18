@@ -84,6 +84,12 @@ parameters; `CLICKLISP_FORMAT` and `CLICKLISP_PLAY` override the output
 format and the endpoint. One statement per invocation (the ClickHouse
 HTTP interface is single-statement).
 
+One thing to know about the playground: its `demo` user reads at most a
+billion rows per query and then stops without an error, so a query over
+one of the large tables that does not prune returns a partial answer
+that looks complete. `:settings ((read_overflow_mode "throw"))` makes
+the playground refuse such a query instead.
+
 The same queries run as [live demos](https://cl.clickhouse.com/#demos)
 in the browser: the site's deploy workflow builds the binary, compiles
 the example libraries with `rules json`, and each demo page sends the
@@ -211,13 +217,16 @@ the playground's example datasets:
   array lambdas, CTE composition, and a query that calls back into a
   clicklisp executable UDF.
 - [github-events.lisp](examples/analytics/github-events.lisp) — a
-  `defrule` threat pack over 11 billion rows of public GitHub events
-  (`github.events`): branch-reset storms, mass ref deletion, tag
-  retargeting, star storms, bulk collaborator adds, commit-hour
-  anomalies, each tagged with MITRE ATT&CK technique IDs. Two rules
-  default to historical windows because the dataset's loader stopped
-  populating `push_size` and tag `CreateEvent`s around October 2025 —
-  see the file header.
+  `defrule` threat pack for the playground's table of 11 billion public
+  GitHub events (`github.events`): branch-reset storms, mass ref
+  deletion, tag retargeting, star storms, bulk collaborator adds,
+  commit-hour anomalies, each tagged with MITRE ATT&CK technique IDs.
+  Every rule prunes to less than the playground's billion-row limit; the
+  two over the largest event types do it with an `org` parameter. Those
+  two also want a window before October 2025, when the dataset's loader
+  stopped populating `push_size` and tag `CreateEvent`s, and the star
+  and deletion thresholds are parameters because the feed is thinner
+  now. The file header has the details.
 
 Rule files are full Common Lisp, and queries are data — so a macro can
 generate a family of queries with no copy-paste and no templating

@@ -1,27 +1,40 @@
 ;;;; GitHub events threat pack (github.events on the public playground):
-;;;; the defrule idea aimed at 11.1 billion rows of public GitHub activity.
+;;;; the defrule idea aimed at 11 billion rows of public GitHub activity.
 ;;;;
-;;;; Table choice: github.events, whose sort key (event_type, repo_name,
-;;;; toDate(created_at)) matches these rules' event_type and repo_name
-;;;; predicates, so they prune parts instead of scanning. Avoid
-;;;; github.github_events (same data, worse pruning for these shapes) and
+;;;; Row limit: the playground's demo user reads at most one billion rows
+;;;; per query and stops there without an error (read_overflow_mode =
+;;;; break), so a query that does not prune below that returns a partial
+;;;; answer that looks complete. github.events is sorted by (event_type,
+;;;; repo_name, toDate(created_at)). An event_type alone is enough for
+;;;; WatchEvent (560 million rows), DeleteEvent (340 million) and
+;;;; MemberEvent (37 million), but PushEvent has 6.5 billion rows and
+;;;; CreateEvent 1.5 billion. The two rules that read those take an org
+;;;; parameter, the part of repo_name before the slash, which prunes them
+;;;; to a few hundred thousand rows for an organization the size of
+;;;; ClickHouse. When you write a new rule here, try it once with
+;;;; :settings ((read_overflow_mode "throw")): the playground then refuses
+;;;; a query it would otherwise cut short. Avoid github.github_events
+;;;; (sorted by repo_id first, so none of this prunes) and
 ;;;; git.github_events (a View).
 ;;;;
 ;;;;   clicklisp rules sql --load examples/analytics/github-events.lisp branch-reset-storm \
-;;;;     | scripts/play.sh since=2025-01-01T00:00:00 until=2025-01-08T00:00:00
+;;;;     | scripts/play.sh org=ClickHouse since=2024-04-15T00:00:00 until=2024-04-22T00:00:00
 ;;;;   clicklisp rules sql --load examples/analytics/github-events.lisp mass-ref-deletion \
-;;;;     | scripts/play.sh hours=24
+;;;;     | scripts/play.sh hours=24 min_deletions=10
 ;;;;   clicklisp rules sql --load examples/analytics/github-events.lisp star-storm \
-;;;;     | scripts/play.sh
+;;;;     | scripts/play.sh min_stars=5
 ;;;;
 ;;;; play.sh splices parameter values into the URL verbatim, so write
 ;;;; DateTime values with the ISO T separator, never a space.
 ;;;;
-;;;; Loader caveat: the feed stopped populating push_size /
+;;;; Loader caveats: the feed stopped populating push_size /
 ;;;; push_distinct_size and stopped recording tag CreateEvents around
-;;;; October 2025. branch-reset-storm and tag-retarget therefore only
-;;;; fire on historical windows; known-good defaults are in their
-;;;; comments.
+;;;; October 2025, so branch-reset-storm and tag-retarget only fire on
+;;;; windows before that; known-good values are in their comments. The
+;;;; feed has also been thin and uneven since mid-2026 (about 110,000
+;;;; stars in the first half of November 2026, against 3.6 to 4.2 million
+;;;; a month in mid-2025), which is why the thresholds of star-storm and
+;;;; mass-ref-deletion are parameters.
 
 ;; push_distinct_size = 0 with push_size > 0 means no commit in the push
 ;; was new to the repo: the ref was pointed at already-pushed commits (a
@@ -30,15 +43,19 @@
 ;; all-new SHAs, so true force-push detection is not possible from this
 ;; dataset -- this flags actors doing bulk ref resets instead, minus the
 ;; merge-queue-style [bot] accounts that do it legitimately all day.
-;; push_size stopped being populated ~Oct 2025 -- query a historical
-;; window, e.g. since=2025-01-01T00:00:00 until=2025-01-08T00:00:00.
+;; PushEvent is the largest event type by far, so the rule looks at one
+;; organization (or user) at a time: org is the part of repo_name before
+;; the slash. push_size stopped being populated ~Oct 2025 -- query a
+;; window before that, e.g. org=ClickHouse since=2024-04-15T00:00:00
+;; until=2024-04-22T00:00:00.
 (defrule branch-reset-storm
-    (:description "Actors resetting one repo's refs to already-pushed commits 10+ times in a window"
+    (:description "Actors resetting a repo's refs to already-pushed commits 10+ times in a window, in one organization's repos"
      :severity :medium
      :tags (:t1565.001 :github :push))
   (select (actor-login repo-name (as (count) resets))
     :from github.events
     :where (and (= event-type "PushEvent")
+                (starts-with repo-name (concat (param org :string) "/"))
                 (>= created-at (param since :date-time))
                 (< created-at (param until :date-time))
                 (> push-size 0)
@@ -50,9 +67,10 @@
     :limit 50))
 
 ;; Branch/tag mass deletion: destructive cleanup, or an account wiping
-;; the evidence. Window bound server-side, e.g. hours=24.
+;; the evidence. Window and threshold are bound server-side, e.g.
+;; hours=24 min_deletions=10 (50 was the bar on the full feed).
 (defrule mass-ref-deletion
-    (:description "Actors with 50+ ref deletions in one repo within {hours:UInt32} hours"
+    (:description "Actors with {min_deletions:UInt32}+ ref deletions in one repo within {hours:UInt32} hours"
      :severity :high
      :tags (:t1485 :github))
   (select (actor-login repo-name (as (count) deletions) (as (uniq-exact ref) refs))
@@ -60,16 +78,18 @@
     :where (and (= event-type "DeleteEvent")
                 (>= created-at (- (now) (interval (param hours :uint32) :hours))))
     :group-by (actor-login repo-name)
-    :having (>= deletions 50)
+    :having (>= deletions (param min-deletions :uint32))
     :order-by ((deletions :desc))
     :limit 50))
 
 ;; A tag deleted and recreated in the same window now points somewhere
-;; else -- the classic release-retarget supply-chain move. Tag
-;; CreateEvents stopped ~Oct 2025 -- query a historical window, e.g.
-;; since=2025-09-01T00:00:00 until=2025-09-08T00:00:00.
+;; else -- the classic release-retarget supply-chain move. Scoped to
+;; one organization like branch-reset-storm: Create and Delete events
+;; together are more than the playground reads. Tag CreateEvents stopped
+;; ~Oct 2025 -- query a window before that, e.g. org=ClickHouse
+;; since=2024-08-05T00:00:00 until=2024-08-12T00:00:00.
 (defrule tag-retarget
-    (:description "Tags deleted and recreated in the same window (release retarget)"
+    (:description "Tags deleted and recreated in the same window in one organization's repos (release retarget)"
      :severity :critical
      :tags (:t1195.002 :github :supply-chain))
   (select (repo-name ref
@@ -77,6 +97,7 @@
            (as (count-if (= event-type "CreateEvent")) recreated))
     :from github.events
     :where (and (in event-type (list "DeleteEvent" "CreateEvent"))
+                (starts-with repo-name (concat (param org :string) "/"))
                 (= ref-type "tag")
                 (>= created-at (param since :date-time))
                 (< created-at (param until :date-time)))
@@ -85,10 +106,11 @@
     :order-by (((+ deleted recreated) :desc))
     :limit 50))
 
-;; Repos gaining 50+ stars in a single hour of the last day: launch-day
-;; traffic, or a bought star campaign. No parameters -- run it as is.
+;; Repos gaining many stars in a single hour of the last day: launch-day
+;; traffic, or a bought star campaign. The threshold is bound server-side,
+;; e.g. min_stars=5 on today's thin feed (50 was the bar on the full one).
 (defrule star-storm
-    (:description "Repos gaining 50+ stars in one hour over the last 24 hours"
+    (:description "Repos gaining {min_stars:UInt32}+ stars in one hour over the last 24 hours"
      :severity :medium
      :tags (:t1585.001 :github :stars))
   (select (repo-name (as (to-start-of-hour created-at) hour)
@@ -97,7 +119,7 @@
     :where (and (= event-type "WatchEvent")
                 (>= created-at (- (now) (interval 24 :hours))))
     :group-by (repo-name hour)
-    :having (>= stars 50)
+    :having (>= stars (param min-stars :uint32))
     :order-by ((stars :desc))
     :limit 50))
 

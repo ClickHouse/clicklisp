@@ -29,6 +29,8 @@ export interface Demo {
 
 const DATETIME = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/;
 const UINT32 = /^\d{1,9}$/;
+// A GitHub organization or user name: letters, digits and hyphens.
+const ORG = /^[A-Za-z0-9][A-Za-z0-9-]{0,38}$/;
 const DATETIME_HELP = "YYYY-MM-DD HH:MM:SS";
 
 const EXAMPLES = "https://github.com/ClickHouse/clicklisp/blob/main/examples/analytics";
@@ -46,15 +48,23 @@ export const DEMOS: Record<DemoSlug, Demo> = {
     datasetHref: "https://clickhouse.com/docs/getting-started/example-datasets/github-events",
     exampleFiles: [`${EXAMPLES}/github-events.lisp`],
     loadCommand:
-      "bin/clicklisp rules sql --load examples/analytics/github-events.lisp tag-retarget | scripts/play.sh since=2025-09-01T00:00:00 until=2025-09-08T00:00:00",
+      "bin/clicklisp rules sql --load examples/analytics/github-events.lisp tag-retarget | scripts/play.sh org=ClickHouse since=2024-08-05T00:00:00 until=2024-08-12T00:00:00",
+    // The playground reads at most a billion rows per query and then stops
+    // without an error. The two rules over the largest event types take an
+    // org so that they stay under it, and their windows predate the loader
+    // change of October 2025. The two thresholds are set for today's thin
+    // feed; on the full feed they were 50.
     params: {
-      since: { label: "since (DateTime)", default: "2025-01-01 00:00:00", pattern: DATETIME, help: DATETIME_HELP },
-      until: { label: "until (DateTime)", default: "2025-01-08 00:00:00", pattern: DATETIME, help: DATETIME_HELP },
+      org: { label: "org (String)", default: "ClickHouse", pattern: ORG, help: "an organization or user name" },
+      since: { label: "since (DateTime)", default: "2024-04-15 00:00:00", pattern: DATETIME, help: DATETIME_HELP },
+      until: { label: "until (DateTime)", default: "2024-04-22 00:00:00", pattern: DATETIME, help: DATETIME_HELP },
       hours: { label: "hours (UInt32)", default: "24", pattern: UINT32 },
+      min_deletions: { label: "min_deletions (UInt32)", default: "10", pattern: UINT32 },
+      min_stars: { label: "min_stars (UInt32)", default: "5", pattern: UINT32 },
       repo: { label: "repo (String)", default: "ClickHouse/ClickHouse", help: "owner/name" },
     },
     perRuleParamDefaults: {
-      "tag-retarget": { since: "2025-09-01 00:00:00", until: "2025-09-08 00:00:00" },
+      "tag-retarget": { since: "2024-08-05 00:00:00", until: "2024-08-12 00:00:00" },
       "commit-hour-anomaly": {
         since: () => dayjs().subtract(30, "day").format("YYYY-MM-DD HH:mm:ss"),
       },
