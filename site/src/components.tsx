@@ -1,7 +1,7 @@
 import { ReactNode, useEffect, useState } from "react";
 
 export const REPO_URL = "https://github.com/ClickHouse/clicklisp";
-export const VERSION = "v0.1.2";
+export const VERSION = "v0.1.3";
 
 // Yellow uppercase section label, clickhouse.com-style.
 export function Eyebrow({ children }: Readonly<{ children: ReactNode }>) {
