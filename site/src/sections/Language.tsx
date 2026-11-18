@@ -12,9 +12,10 @@ export default function Language() {
         </Title>
         <Text color="muted" size="md">
           Operators and clause names are matched by symbol name, so forms can be written in any package
-          and built as plain data. Strings are escaped, identifiers are validated, and every infix
-          expression is parenthesized — precedence bugs are structurally impossible, and injection
-          requires an explicit <code>(raw ...)</code>.
+          and built as plain data. Strings are escaped, identifiers and function names are
+          validated, and every infix expression is parenthesized, so precedence bugs are structurally
+          impossible. Raw text only goes in through an explicit escape hatch such as{" "}
+          <code>(raw ...)</code>.
         </Text>
       </div>
       <div className="mt-lg">

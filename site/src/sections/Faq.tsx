@@ -38,9 +38,11 @@ const FAQS: Array<{ q: string; a: JSX.Element }> = [
     q: "What about SQL injection?",
     a: (
       <Text color="muted" size="sm">
-        Strings are escaped, identifiers are validated or backtick-quoted, and every infix expression
-        is parenthesized, so precedence bugs are structurally impossible. Getting raw text into a query
-        requires writing <code>(raw ...)</code> on purpose.
+        Strings are escaped, identifiers are validated or backtick-quoted, function names must be
+        plain identifiers, and every infix expression is parenthesized, so precedence bugs are
+        structurally impossible. Raw text gets into a query only through the forms that take it as a
+        string on purpose: <code>(raw ...)</code>, <code>(fn "name" ...)</code> and a type written
+        as a string.
       </Text>
     ),
   },

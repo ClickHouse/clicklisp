@@ -254,3 +254,21 @@
   (is= "SELECT MyWeirdFn(x)" (cq '(select ((my-weird-fn x)))))
   (define-sql-type geo-point "Point")
   (is= "SELECT CAST(x AS Point)" (cq '(select ((cast x :geo-point))))))
+
+(deftest verbatim-paths
+  ;; a function name must be spelled like a plain identifier, whether it
+  ;; comes from a symbol or from a string in head position
+  (signals-sql-error (cq '(select ((weird!name x)))))
+  (signals-sql-error (cq '(select ((|f(1); DROP TABLE x; --| x)))))
+  (signals-sql-error (cq '(select (("f(1); DROP TABLE x; --" x)))))
+  (is= "SELECT toIPv4(ip)" (cq '(select (("toIPv4" ip)))))
+  ;; reserved words are fine as function names
+  (is= "SELECT left(s, 3), any(x)" (cq '(select ((left s 3) (any x)))))
+  ;; so is a format name, and nothing but a name
+  (is= "SELECT a FROM t FORMAT Null" (cq '(select (a) :from t :format "Null")))
+  (signals-sql-error (cq '(select (a) :from t :format "JSON; DROP TABLE x")))
+  ;; verbatim text goes in where a string is asked for on purpose
+  (is= "SELECT quantile(0.9)(price)" (cq '(select ((fn "quantile(0.9)" price)))))
+  (is= "SELECT CAST(x AS Array(Point))" (cq '(select ((cast x "Array(Point)")))))
+  (define-sql-function p90 "quantile(0.9)")
+  (is= "SELECT quantile(0.9)(price)" (cq '(select ((p90 price))))))
