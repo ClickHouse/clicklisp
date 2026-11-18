@@ -384,7 +384,9 @@ compiling Lisp at `CREATE FUNCTION` time.
 - **sanitize** — builds ECL 26.5.5 from source with ASan+UBSan on both
   architectures (build-time flags propagate into ECL's runtime Lisp→C
   compiler, so all generated code is instrumented), then runs the suite
-  and the binary under the sanitizers. The toolchain is cached.
+  and the binary under the sanitizers. A report from either one fails
+  the job; five UBSan checks that fire by design inside ECL are switched
+  off, and the workflow file says which and why. The toolchain is cached.
 - **static** — the Alpine/musl static builds for x86_64 and aarch64.
 - **release** — pushing a tag `vX.Y.Z` (which must match `version.sexp`)
   builds both static binaries and publishes them with SHA256SUMS to a
