@@ -217,6 +217,17 @@ define RULE, as data."
 ;;; ---------------------------------------------------------------------
 ;;; clicklisp rules
 
+(defun description-lines (description)
+  "The non-empty lines of DESCRIPTION (NIL for no description), each
+trimmed of spaces and tabs. A description may span lines; the listing
+joins them and rules sql puts each one in its own comment."
+  (and description
+       (loop for line in (split-string (substitute #\Newline #\Return description)
+                                       #\Newline)
+             for trimmed = (string-trim '(#\Space #\Tab) line)
+             when (plusp (length trimmed))
+               collect trimmed)))
+
 (defun cmd-rules (args)
   (let ((loads '())
         (positionals '())
@@ -251,11 +262,11 @@ define RULE, as data."
            (if (null rules)
                (format t "no rules loaded (use --load FILE)~%")
                (dolist (rule rules)
-                 (format t "~24A ~10A ~@[~A~]~%"
+                 (format t "~24A ~10A ~{~A~^ ~}~%"
                          (rule-name rule)
                          (let ((severity (rule-severity rule)))
                            (if severity (string-downcase (symbol-name severity)) ""))
-                         (rule-description rule))))))
+                         (description-lines (rule-description rule)))))))
         ((string= subcommand "sql")
          (let ((rules (cond (all (list-rules))
                             (names (mapcar (lambda (name)
@@ -266,12 +277,16 @@ define RULE, as data."
            (when (null rules)
              (usage-error "rules sql: no rules loaded (use --load FILE)"))
            (dolist (rule rules)
-             (format t "-- ~A~@[ [~A]~]~@[ ~A~]~%~A;~%~%"
-                     (rule-name rule)
-                     (let ((severity (rule-severity rule)))
-                       (and severity (string-downcase (symbol-name severity))))
-                     (rule-description rule)
-                     (rule-sql rule :pretty pretty)))))
+             ;; a description may span lines: each one gets its own --,
+             ;; so that what is printed is still SQL
+             (let ((lines (description-lines (rule-description rule))))
+               (format t "-- ~A~@[ [~A]~]~@[ ~A~]~%~{-- ~A~%~}~A;~%~%"
+                       (rule-name rule)
+                       (let ((severity (rule-severity rule)))
+                         (and severity (string-downcase (symbol-name severity))))
+                       (first lines)
+                       (rest lines)
+                       (rule-sql rule :pretty pretty))))))
         ((string= subcommand "json")
          ;; --pretty is accepted but a no-op here: the JSON always carries
          ;; both compact and pretty SQL.
