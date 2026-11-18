@@ -110,7 +110,13 @@
 (define-sql-special ("-") (form)
   (expect-min-args form 1)
   (if (= 1 (length (rest form)))
-      (format nil "(-~A)" (expr-sql (second form)))
+      (let ((operand (expr-sql (second form))))
+        ;; -- opens a SQL comment, so an operand that itself starts with
+        ;; a minus sign (a negative literal) gets its own parentheses
+        (if (and (plusp (length operand))
+                 (char= (char operand 0) #\-))
+            (format nil "(-(~A))" operand)
+            (format nil "(-~A)" operand)))
       (infix-sql "-" (rest form))))
 
 (define-sql-special ("*") (form)
