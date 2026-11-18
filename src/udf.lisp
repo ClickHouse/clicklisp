@@ -140,9 +140,13 @@ which would miss a second save within the same second."
         (when (and current (not (equal current last)))
           (setf last current)
           (handler-case
-              ;; anything LOAD prints must stay off *standard-output*:
-              ;; that stream is the UDF protocol channel
+              ;; read the file the way the first --load did (see
+              ;; load-user-file): in the forms package, with float
+              ;; literals at Float64 precision. Anything LOAD prints must
+              ;; stay off *standard-output*: that stream is the UDF
+              ;; protocol channel
               (let ((*package* (find-package '#:clicklisp.forms))
+                    (*read-default-float-format* 'double-float)
                     (*load-verbose* nil)
                     (*load-print* nil)
                     (*standard-output* *error-output*))
