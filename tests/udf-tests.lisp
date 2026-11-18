@@ -185,3 +185,21 @@
                              (main (list "compile" "--" (namestring path)))))))
              (is (equal (format nil "SELECT 1~%") output))))
       (delete-file path))))
+
+(defrule test-two-line-rule
+    (:description "first line
+second line" :severity :low)
+  (select (1)))
+
+(deftest rules-multiline-description
+  ;; every line of a description stays inside a comment, so the output of
+  ;; rules sql is still SQL; the listing keeps one line per rule
+  (let ((sql (with-output-to-string (out)
+               (let ((*standard-output* out))
+                 (main '("rules" "sql" "test-two-line-rule")))))
+        (listing (with-output-to-string (out)
+                   (let ((*standard-output* out))
+                     (main '("rules" "list"))))))
+    (is= (format nil "-- test-two-line-rule [low] first line~%-- second line~%SELECT 1;~%~%")
+         sql)
+    (is (search "first line second line" listing))))
