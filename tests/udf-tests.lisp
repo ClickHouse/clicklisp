@@ -114,6 +114,28 @@
     (is (< (abs (- 1.0d0 (funcall entropy-fn "abab"))) 1d-9))
     (is (> (funcall entropy-fn "q7x9z2j4k8w1") (funcall entropy-fn "aaaaaaaaaaaa")))
     (is (null (funcall entropy-fn nil)))
+    ;; entropy keeps one counting table and clears it between rows. Every
+    ;; result must be the one a fresh table gives, whatever came before,
+    ;; down to the last digit: the order the counts are summed in is the
+    ;; table's. The wide string has enough distinct characters to make
+    ;; the kept table grow.
+    (flet ((fresh (s)
+             (let ((counts (make-hash-table :test 'eql))
+                   (bits 0.0d0))
+               (loop for char across s
+                     do (incf (gethash char counts 0)))
+               (maphash (lambda (char count)
+                          (declare (ignore char))
+                          (let ((p (coerce (/ count (length s)) 'double-float)))
+                            (decf bits (* p (log p 2.0d0)))))
+                        counts)
+               bits)))
+      (let ((wide (coerce (loop for i below 2000 collect (code-char (+ 256 i)))
+                          'string)))
+        (dolist (s (list "clickhouse" "q7x9z2j4k8w1.evil.example" wide
+                         "clickhouse" "q7x9z2j4k8w1.evil.example"
+                         "the quick brown fox jumps over the lazy dog"))
+          (is (= (fresh s) (funcall entropy-fn s))))))
     (is= "uryyb" (funcall rot13-fn "hello"))
     (is= "hello" (funcall rot13-fn (funcall rot13-fn "hello")))))
 

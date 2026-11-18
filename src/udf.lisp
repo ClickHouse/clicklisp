@@ -205,22 +205,37 @@ output is flushed per row."
   "ROT13 the input string."
   (and s (map 'string #'rot13-char s)))
 
-(defudf entropy (s)
-  "Shannon entropy of the input string in bits per character. Useful for
+;;; ENTROPY counts characters in a hash table. ECL's default table has
+;;; 1024 buckets, and making one for every row is what the function spent
+;;; its time on: about 100 microseconds a row in the static build, five
+;;; times the cost of the row loop itself. One table is kept instead and
+;;; cleared after each row. It starts every row empty and at the default
+;;; size, exactly like a fresh one, so MAPHASH visits the counts in the
+;;; same order and the sum comes out the same to the last digit.
+(let* ((counts (make-hash-table :test 'eql))
+       (default-size (hash-table-size counts)))
+  (defudf entropy (s)
+    "Shannon entropy of the input string in bits per character. Useful for
 spotting DGA-style random domains."
-  (when s
-    (if (zerop (length s))
-        0.0d0
-        (let ((counts (make-hash-table :test 'eql))
-              (length (length s))
-              (bits 0.0d0))
-          (loop for char across s
-                do (incf (gethash char counts 0)))
-          (maphash (lambda (char count)
-                     (declare (ignore char))
-                     ;; coerce before LOG: some ECLs compute the log of a
-                     ;; rational at single-float precision
-                     (let ((p (coerce (/ count length) 'double-float)))
-                       (decf bits (* p (log p 2.0d0)))))
-                   counts)
-          bits))))
+    (when s
+      (if (zerop (length s))
+          0.0d0
+          (let ((length (length s))
+                (bits 0.0d0))
+            (unwind-protect
+                 (progn
+                   (loop for char across s
+                         do (incf (gethash char counts 0)))
+                   (maphash (lambda (char count)
+                              (declare (ignore char))
+                              ;; coerce before LOG: some ECLs compute the
+                              ;; log of a rational at single-float precision
+                              (let ((p (coerce (/ count length) 'double-float)))
+                                (decf bits (* p (log p 2.0d0)))))
+                            counts))
+              ;; CLRHASH keeps a table that grew at its new size, which
+              ;; would change the order for the rows after it
+              (if (= (hash-table-size counts) default-size)
+                  (clrhash counts)
+                  (setf counts (make-hash-table :test 'eql))))
+            bits)))))
