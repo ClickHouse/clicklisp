@@ -29,8 +29,9 @@ export interface Demo {
 
 const DATETIME = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/;
 const UINT32 = /^\d{1,9}$/;
-// A GitHub organization or user name: letters, digits and hyphens.
-const ORG = /^[A-Za-z0-9][A-Za-z0-9-]{0,38}$/;
+// A GitHub organization or user name: letters, digits and hyphens, plus the
+// underscore that managed user accounts carry.
+const ORG = /^[A-Za-z0-9][A-Za-z0-9_-]{0,38}$/;
 const DATETIME_HELP = "YYYY-MM-DD HH:MM:SS";
 
 const EXAMPLES = "https://github.com/ClickHouse/clicklisp/blob/main/examples/analytics";
